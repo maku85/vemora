@@ -25,6 +25,7 @@
     "commander": "^12.1.0",
     "fast-glob": "^3.3.2",
     "hnsw": "^1.1.1",
+    "micromatch": "^4.0.8",
     "openai": "^4.67.0",
     "ora": "^5.4.1"
   },
