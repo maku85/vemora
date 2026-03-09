@@ -542,16 +542,16 @@ program
 program
   .command("init-agent")
   .description(
-    "Generate AI agent instruction files (CLAUDE.md, .github/copilot-instructions.md, .cursor/rules/ai-memory.mdc, .windsurfrules)",
+    "Generate AI agent instruction files (CLAUDE.md, GEMINI.md, .github/copilot-instructions.md, .cursor/rules/ai-memory.mdc, .windsurfrules)",
   )
   .option(
     "--agent <agent>",
-    "Which agent to target: claude, copilot, cursor, windsurf (default: all)",
+    "Which agent to target: claude, gemini, copilot, cursor, windsurf (default: all)",
   )
   .option("--force", "Overwrite existing files that have no ai-memory markers")
   .option("--root <dir>", "Project root directory", process.cwd())
   .action(async (opts: { agent?: string; force?: boolean; root: string }) => {
-    const ALL_AGENTS = ["claude", "copilot", "cursor", "windsurf"] as const;
+    const ALL_AGENTS = ["claude", "copilot", "cursor", "windsurf", "gemini"] as const;
     type AgentTarget = (typeof ALL_AGENTS)[number];
     const agents: AgentTarget[] | undefined = opts.agent
       ? ALL_AGENTS.includes(opts.agent as AgentTarget)
@@ -561,7 +561,7 @@ program
     if (opts.agent && !agents) {
       console.error(
         chalk.red(
-          `Unknown agent "${opts.agent}". Valid values: claude, copilot, cursor, windsurf`,
+          `Unknown agent "${opts.agent}". Valid values: claude, gemini, copilot, cursor, windsurf`,
         ),
       );
       process.exit(1);

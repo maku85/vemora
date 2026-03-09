@@ -8,7 +8,7 @@ import { SummaryStorage } from "../storage/summaries";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type AgentTarget = "claude" | "copilot" | "cursor" | "windsurf";
+export type AgentTarget = "claude" | "copilot" | "cursor" | "windsurf" | "gemini";
 
 export interface InitAgentOptions {
   agents?: AgentTarget[];
@@ -49,7 +49,7 @@ export async function runInitAgent(
   rootDir: string,
   options: InitAgentOptions = {},
 ): Promise<void> {
-  const ALL_AGENTS: AgentTarget[] = ["claude", "copilot", "cursor", "windsurf"];
+  const ALL_AGENTS: AgentTarget[] = ["claude", "copilot", "cursor", "windsurf", "gemini"];
   const targets = options.agents ?? ALL_AGENTS;
   const force = options.force ?? false;
 
@@ -127,6 +127,9 @@ function writeAgentFile(
       break;
     case "windsurf":
       writeWindsurfFile(rootDir, block, force);
+      break;
+    case "gemini":
+      writeGeminiFile(rootDir, projectName, block, force);
       break;
   }
 }
@@ -209,6 +212,30 @@ function writeCursorFile(rootDir: string, block: string, force: boolean): void {
     } else {
       printNoMarkersWarning(label);
     }
+  }
+}
+
+function writeGeminiFile(
+  rootDir: string,
+  projectName: string,
+  block: string,
+  force: boolean,
+): void {
+  const outputPath = path.join(rootDir, "GEMINI.md");
+  const label = "Gemini: GEMINI.md";
+
+  if (!fs.existsSync(outputPath)) {
+    const content = `# ${projectName}\n\n${DEFAULT_INSTRUCTIONS}\n\n${block}\n`;
+    fs.writeFileSync(outputPath, content, "utf-8");
+    console.log(chalk.green(`✓ ${label} created`));
+  } else {
+    mergeOrOverwrite(
+      outputPath,
+      `# ${projectName}\n\n${DEFAULT_INSTRUCTIONS}\n\n${block}\n`,
+      block,
+      force,
+      label,
+    );
   }
 }
 

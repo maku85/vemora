@@ -1,0 +1,8 @@
+ignoredBuiltDependencies:
+  - protobufjs
+  - tree-sitter
+  - tree-sitter-javascript
+  - tree-sitter-typescript
+
+onlyBuiltDependencies:
+  - sharp
