@@ -377,41 +377,41 @@ export function buildGeneratedBlock(
   lines.push("");
   lines.push("```bash");
   lines.push("# Semantic search — returns the most relevant code chunks");
-  lines.push('node ai-memory/dist/cli.js query "your question" --root .');
+  lines.push('ai-memory query "your question" --root .');
   lines.push("");
   lines.push("# One-shot answer: retrieve context and call the configured LLM");
-  lines.push('node ai-memory/dist/cli.js ask "your question" --root .');
+  lines.push('ai-memory ask "your question" --root .');
   lines.push(
-    'node ai-memory/dist/cli.js ask "your question" --root . --keyword  # no embeddings needed',
+    'ai-memory ask "your question" --root . --keyword  # no embeddings needed',
   );
   lines.push("");
   lines.push("# Generate a full context block to paste into any LLM");
   lines.push(
-    'node ai-memory/dist/cli.js context --root . --query "your question" > context.md',
+    'ai-memory context --root . --query "your question" > context.md',
   );
   lines.push("");
   lines.push("# Include a specific file with its dependency graph");
   lines.push(
-    "node ai-memory/dist/cli.js context --root . --file src/path/to/file.ts",
+    "ai-memory context --root . --file src/path/to/file.ts",
   );
   lines.push("");
   lines.push("# Limit context to a token budget");
   lines.push(
-    'node ai-memory/dist/cli.js query "your question" --root . --budget 3000',
+    'ai-memory query "your question" --root . --budget 3000',
   );
   lines.push("");
   lines.push(
     "# Save a persistent note (architectural decision, gotcha, approved pattern)",
   );
   lines.push(
-    'node ai-memory/dist/cli.js remember "text" --root . --category decision',
+    'ai-memory remember "text" --root . --category decision',
   );
   lines.push(
-    'node ai-memory/dist/cli.js remember "text" --root . --category gotcha',
+    'ai-memory remember "text" --root . --category gotcha',
   );
   lines.push("");
   lines.push("# List saved knowledge entries");
-  lines.push("node ai-memory/dist/cli.js knowledge list --root .");
+  lines.push("ai-memory knowledge list --root .");
   lines.push("```");
   lines.push("");
   lines.push(
