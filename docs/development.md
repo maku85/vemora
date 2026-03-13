@@ -185,17 +185,15 @@ Order matters: first matching pattern wins per line.
 
 ## Planned improvements
 
-Candidates for future implementation, roughly ordered by priority.
+Candidates for future implementation, ordered by priority.
 
-### HIGH priority — token cost reduction & LLM quality
-
-#### 1. Tiered display per relevance score (non per rank posizionale)
+### 1. Tiered display per relevance score
 
 **Goal:** reduce token usage by showing less code when the chunk is only marginally relevant.
 
-**File:** `src/search/signature.ts`, `src/commands/context.ts`
+**File:** `src/search/signature.ts`, `src/commands/query.ts`
 
-Currently, tiers are based on position (rank 1–3 = full, 4–7 = signature, 8+ = summary). Change to absolute relevance score thresholds:
+Currently tiers are based on rank position (1–3 = full, 4–7 = signature, 8+ = summary). Change to absolute relevance score thresholds:
 
 ```
 score ≥ 0.90 → full code (max 30 lines)
@@ -204,84 +202,36 @@ score ≥ 0.55 → signature only
 score  < 0.55 → file + symbol + score only
 ```
 
-Thresholds should be configurable in `config.json` under `display.tiers`.
-
-Estimated savings: **20–35% tokens** on generic queries.
+Thresholds should be configurable in `config.json` under `display.tiers`. Estimated savings: **20–35% tokens** on generic queries.
 
 ---
 
-#### 2. Call graph depth-1 automatico nel contesto
+### 2. Diff-aware context for modification queries
 
-**Goal:** always include the signatures of the direct dependencies of the main chunk, without proportionally increasing token usage.
-
-**File:** `src/commands/context.ts`
-
-For the top-scoring chunk, read `callgraph.json` and extract the functions called (depth 1). Include the signature (not the body) of each in the "Direct Dependencies" section. Cost: ~5–10 tokens per signature, high benefit for LLM understanding.
-
-```typescript
-const topChunk = results[0];
-const calls = callGraph[topChunk.file]?.calls ?? [];
-const depSignatures = calls
-  .flatMap(fn => findChunksBySymbol(fn, chunks))
-  .map(c => extractSignature(c.content))
-  .slice(0, 8);
-```
-
----
-
-#### 3. Token counting accurato con tiktoken
-
-**Goal:** use the token budget up to the last token without exceeding it.
-
-**File:** `src/utils/tokenizer.ts`
-
-The current heuristic (3.2 chars/token) underestimates for dense TypeScript code with generics and overestimates for sparse code. Add optional support for `tiktoken`:
-
-```typescript
-// config.json
-"tokenizer": "cl100k_base"  // oppure "heuristic" (default)
-```
-
-```typescript
-import { get_encoding } from 'tiktoken';
-const enc = get_encoding('cl100k_base');
-export function countTokensAccurate(text: string): number {
-  return enc.encode(text).length;
-}
-```
-
-Include `tiktoken` as an optional dependency. If not installed, fallback to the heuristic.
-
----
-
-#### 4. Diff-aware context per task di modifica
-
-**Goal:** when the query indicates a modification (`fix`, `refactor`, `change`, `add`), automatically include related tests and the implemented public interface.
+**Goal:** when the query signals a modification task, automatically surface related tests and the public interface being modified.
 
 **File:** `src/commands/context.ts`
 
 ```typescript
 const isModificationQuery = /\b(fix|refactor|change|add|update|remove|rename)\b/i.test(query);
 if (isModificationQuery) {
-  // 1. Includi il chunk target completo
-  // 2. Cerca file *.test.ts / *.spec.ts con lo stesso nome simbolo
-  // 3. Includi l'interfaccia pubblica (interface/type) che il chunk implementa
+  // 1. include top chunk in full
+  // 2. find test files via findTestFiles() (already implemented)
+  // 3. include the interface/type chunks the symbol implements
 }
 ```
 
-Prevents the LLM from breaking existing contracts during modifications.
+Prevents the LLM from breaking existing contracts during modifications. `findTestFiles()` is already available; the missing piece is the interface/type lookup and the intent detection.
 
 ---
 
-### HIGH priority — local & small model support
+### 3. Suggested next command
 
-#### 6. Suggested next command in output
-
-**Goal:** guide the model to the next action without requiring agentive reasoning.
+**Goal:** guide small/local models to the next step without requiring agentive reasoning.
 
 **File:** `src/commands/query.ts`, `src/commands/context.ts`
 
-Appendere alla fine di ogni risposta un blocco con il comando suggerito più utile:
+Append a "Suggested next step:" block at the end of every response:
 
 ```markdown
 ---
@@ -289,142 +239,26 @@ Suggested next step:
 node ai-memory/dist/cli.js context --root . --file src/core/email/services/email.service.ts
 ```
 
-Suggestion logic: if the top result has score > 0.85 → suggest `context --file`; if score 0.6–0.85 → suggest a more specific `context --query`; if keyword-only → suggest enabling embeddings.
+Suggestion logic: top score > 0.85 → suggest `context --file <top_file>`; 0.6–0.85 → suggest `context --query` with a narrower term; keyword-only → suggest enabling embeddings.
 
 ---
 
-#### 7. Flag `--task` su `context`: preamble task-aware nel prompt
+### 4. Git-aware score boost
 
-**Goal:** inject operational instructions into the context block based on the type of task, reducing ambiguity for less capable models.
+**Goal:** surface files touched recently as higher-priority results, without changing the query.
 
-**File:** `src/commands/context.ts`
-
-```bash
-node dist/cli.js context --root . --query "fix retry logic" --task fix
-node dist/cli.js context --root . --query "add logging" --task add
-```
-
-Prepends a task-specific paragraph to the context block:
-
-```
-# Task: fix
-You are fixing a bug. Steps: (1) identify root cause in the code below,
-(2) propose the minimal change, (3) verify no interface contracts are broken.
-Do NOT refactor unrelated code.
-```
-
-Supported tasks: `fix | add | refactor | explain | review`. Default: no preamble (current behavior).
-
----
-
-### MEDIUM priority
-
-#### 11. HNSW auto-build dopo indicizzazione
-
-**Goal:** avoid exhaustive O(n·d) search on large corpora by automatically building the HNSW index.
-
-**File:** `src/commands/index.ts`, `src/storage/cache.ts`
-
-Attualmente l'HNSW viene usato solo se già esiste. Aggiungere:
+**File:** `src/commands/context.ts`, `src/commands/query.ts`
 
 ```typescript
-// Dopo l'embedding di tutti i chunk:
-if (chunks.length > 500 && !cache.hasHnswIndex()) {
-  await cache.buildHnswIndex();
-  await cache.save();
-}
+// git diff HEAD~3 --name-only → set of recently changed files
+const recentFiles = new Set(getRecentlyChangedFiles(rootDir));
+results = results.map(r => ({
+  ...r,
+  score: recentFiles.has(r.chunk.file) ? r.score * 1.3 : r.score,
+})).sort((a, b) => b.score - a.score);
 ```
 
-For corpora < 500 chunks, exhaustive search is still faster than HNSW lookup.
-
----
-
-#### 12. Git-aware context
-
-Automatically include recently changed files as high-priority context:
-- `git diff HEAD~3 --name-only` → boost scores for these files
-- `git log --oneline -10` → parse for recently touched symbols
-
-### LOW priority (architectural explorations)
-
-#### 16. BM25 IDF pre-calcolato
-
-**Goal:** eliminate recalculating IDF on every query even when the BM25 cache is valid.
-
-**File:** `src/search/bm25.ts`
-
-Currently, IDF is recalculated in the scoring loop. Move it out:
-
-```typescript
-// Dentro buildBM25Stats() — calcolato una volta sola:
-const idf: Record<string, number> = {};
-for (const term of dfMap.keys()) {
-  idf[term] = Math.log((N - df + 0.5) / (df + 0.5) + 1);
-}
-cache.idf = idf;
-
-// Dentro computeBM25Scores() — solo lookup:
-const termIdf = cache.idf[term] ?? 0;
-```
-
-Savings: O(n·m) → O(m) per query, where n = total chunks, m = query terms.
-
----
-
-#### 17. Map idToIndex cachata nel vettore search
-
-**Goal:** avoid O(n) creation of `Map<id, index>` on every exhaustive search.
-
-**File:** `src/search/vector.ts`, `src/storage/cache.ts`
-
-The map is recreated on every call. Move it as a field of `EmbeddingCache` and invalidate it only when the corpus changes:
-
-```typescript
-class EmbeddingCache {
-  private _idToIndex: Map<string, number> | null = null;
-
-  get idToIndex(): Map<string, number> {
-    if (!this._idToIndex) {
-      this._idToIndex = new Map(this.chunkIds.map((id, i) => [id, i]));
-    }
-    return this._idToIndex;
-  }
-}
-```
-
----
-
-#### 18. Cross-encoder reranking in batch
-
-**Goal:** reduce reranking latency by processing all chunks in a single batch instead of N separate steps.
-
-**File:** `src/search/rerank.ts`
-
-```typescript
-// Invece di:
-for (const chunk of topChunks) {
-  const result = await model([[query, chunk.content]]);
-}
-
-// Usare:
-const pairs = topChunks.map(c => [query, c.content]);
-const results = await model(pairs, { batched: true, batch_size: 8 });
-```
-
-`@xenova/transformers` supports native batching. Estimated reduction: **60–80% reranking latency**.
-
----
-
-#### 19. HyDE (Hypothetical Document Embeddings)
-
-Before embedding the query, use a small LLM to generate a hypothetical code snippet that would answer the query, then embed that instead. Embeddings of code are closer to other code embeddings than query embeddings are. Requires an LLM API call per query.
-
-#### 20. Pluggable storage backends
-
-Currently storage is plain JSON files. Could abstract to:
-- SQLite (better performance for large repos, ACID)
-- sqlite-vec (built-in vector search, eliminates separate cache file)
-- Remote (shared embedding cache for large teams — everyone benefits from others' indexing)
+`getFileGitHistory()` is already available in `src/utils/git.ts`; extend it to return the set of files changed in recent commits.
 
 ---
 
@@ -631,9 +465,10 @@ ai-memory/
 ├── tsconfig.json
 ├── README.md
 ├── docs/
-│   ├── architecture.md     system design and data flows
-│   ├── codebase.md         file-by-file reference (LLM context doc)
-│   └── development.md      this file
+│   ├── architecture.md      system design and data flows
+│   ├── codebase.md          file-by-file reference (LLM context doc)
+│   ├── features-planned.md  deferred features with implementation sketches
+│   └── development.md       this file
 └── src/
     ├── cli.ts              entry point, commander setup
     ├── core/

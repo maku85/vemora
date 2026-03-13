@@ -15,7 +15,7 @@
 
 ## SECURITY
 
-### S3 · MEDIUM · `config.json` parsed without schema validation
+### S1 · MEDIUM · `config.json` parsed without schema validation
 **File:** `src/core/config.ts:124`
 
 `JSON.parse(fs.readFileSync(...))` is cast directly to `AiMemoryConfig` without any validation. A malformed or adversarially crafted config (e.g. `exclude: null`) can cause runtime errors anywhere the config fields are accessed, with no informative error message.
@@ -24,7 +24,7 @@
 
 ---
 
-### S5 · MEDIUM · TypeScript path alias resolution allows root escape
+### S2 · MEDIUM · TypeScript path alias resolution allows root escape
 **File:** `src/indexer/deps.ts`
 
 Aliases from `tsconfig.json` (`paths`) are applied via string substitution without canonicalization. An alias like `"@root": ["../../"]` would produce import paths that escape the project root, potentially causing those files to appear in the index or dependency graph.
@@ -33,7 +33,7 @@ Aliases from `tsconfig.json` (`paths`) are applied via string substitution witho
 
 ---
 
-### S6 · LOW · Dynamic `require()` for optional deps creates implicit trust
+### S3 · LOW · Dynamic `require()` for optional deps creates implicit trust
 **File:** `src/commands/index.ts:312–314`, `src/indexer/parser.ts`
 
 `require("chokidar")` and `require("micromatch")` inside functions use Node's module resolution at runtime. If `node_modules` is writable by another process or if the npm lockfile is not enforced, a compromised package could inject code at the point of first use.
@@ -46,8 +46,6 @@ Aliases from `tsconfig.json` (`paths`) are applied via string substitution witho
 
 | # | Severity | Category | File |
 |---|---|---|---|
-| S3 | medium | security | `core/config.ts` |
-| S5 | medium | security | `indexer/deps.ts` |
-| S6 | low | security | `commands/index.ts` |
-
-**Priorità immediata:** S3, S4 (medium security).
+| S1 | medium | security | `core/config.ts` |
+| S2 | medium | security | `indexer/deps.ts` |
+| S3 | low | security | `commands/index.ts` |
