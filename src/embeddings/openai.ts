@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import type { EmbeddingProvider } from "./provider";
 
 /** Maximum inputs per API call (OpenAI allows up to 2048) */
@@ -9,7 +8,8 @@ export class OpenAIEmbeddingProvider implements EmbeddingProvider {
   readonly model: string;
   readonly dimensions: number;
 
-  private client: OpenAI;
+  // biome-ignore lint/suspicious/noExplicitAny: openai is an optional peer dependency
+  private client: any;
 
   constructor(
     apiKey?: string,
@@ -18,6 +18,15 @@ export class OpenAIEmbeddingProvider implements EmbeddingProvider {
   ) {
     this.model = model;
     this.dimensions = dimensions;
+    let OpenAI: any;
+    try {
+      // biome-ignore lint/suspicious/noExplicitAny: optional peer dependency
+      OpenAI = require("openai").default ?? require("openai");
+    } catch {
+      throw new Error(
+        'Package "openai" is not installed. Run: npm install openai',
+      );
+    }
     this.client = new OpenAI({
       apiKey: apiKey ?? process.env.OPENAI_API_KEY,
     });
@@ -53,8 +62,8 @@ export class OpenAIEmbeddingProvider implements EmbeddingProvider {
           })
         );
         for (const response of responses) {
-          const sorted = response.data.sort((a, b) => a.index - b.index);
-          results.push(...sorted.map((e) => e.embedding));
+          const sorted = response.data.sort((a: any, b: any) => a.index - b.index);
+          results.push(...sorted.map((e: any) => e.embedding));
         }
       } catch (err) {
         console.error(`OpenAI embedding batch group ${i / MAX_PARALLEL} failed:`, err);

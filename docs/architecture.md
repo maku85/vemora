@@ -407,6 +407,7 @@ This makes code review of index updates meaningful: reviewers can see which new 
 | Content-hash chunk IDs | Enables cross-branch embedding reuse |
 | Reverse dep graph computed at runtime | Avoids redundant storage; forward graph is the source of truth |
 | tree-sitter in `optionalDependencies` | Regex fallback ensures the tool works even without native build |
+| `openai` and `@anthropic-ai/sdk` in `optionalDependencies` | Users install only the SDK for the provider they actually use; a clear error is thrown at instantiation time if the package is missing |
 | Embeddings prefixed with metadata | Better retrieval quality (embedding knows file + symbol context) |
 | No session memory / conversation state | Out of scope; intended to be used as a pre-query tool |
 | Adjacent chunk merge as opt-in post-step | Keeps chunks atomic in the index; merging at retrieval time avoids duplicating content only when it's actually needed for display |

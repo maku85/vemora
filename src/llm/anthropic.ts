@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import type {
   ChatMessage,
   ChatOptions,
@@ -8,9 +7,19 @@ import type {
 
 export class AnthropicProvider implements LLMProvider {
   readonly name = "anthropic";
-  private client: Anthropic;
+  // biome-ignore lint/suspicious/noExplicitAny: @anthropic-ai/sdk is an optional peer dependency
+  private client: any;
 
   constructor(apiKey: string) {
+    let Anthropic: any;
+    try {
+      // biome-ignore lint/suspicious/noExplicitAny: optional peer dependency
+      Anthropic = require("@anthropic-ai/sdk").default ?? require("@anthropic-ai/sdk");
+    } catch {
+      throw new Error(
+        'Package "@anthropic-ai/sdk" is not installed. Run: npm install @anthropic-ai/sdk',
+      );
+    }
     this.client = new Anthropic({ apiKey });
   }
 
@@ -66,8 +75,8 @@ export class AnthropicProvider implements LLMProvider {
 
     // Anthropic response content can be an array of blocks
     const content = response.content
-      .filter((block) => block.type === "text")
-      .map((block) => (block as { type: "text"; text: string }).text)
+      .filter((block: any) => block.type === "text")
+      .map((block: any) => block.text)
       .join("\n");
 
     return {

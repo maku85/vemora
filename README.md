@@ -371,9 +371,21 @@ Sets the default output format for `query`, `context`, and `ask`. Set to `"terse
 
 | Provider | Config | Notes |
 |---|---|---|
-| `openai` | `OPENAI_API_KEY` env or `apiKey` in config | Default. Best quality. |
-| `ollama` | `baseUrl` (default: `http://localhost:11434`) | Local, no cost. |
+| `openai` | `OPENAI_API_KEY` env or `apiKey` in config | Best quality. Requires `npm install openai`. |
+| `ollama` | `baseUrl` (default: `http://localhost:11434`) | Local, no cost, no extra install. |
 | `none` | — | Keyword search only, no embeddings. |
+
+### LLM providers
+
+Used by `ask`, `chat`, and `summarize`. The embedding provider and LLM provider are configured independently.
+
+| Provider | Config | Notes |
+|---|---|---|
+| `openai` | `OPENAI_API_KEY` env or `apiKey` in config | Requires `npm install openai`. |
+| `anthropic` | `ANTHROPIC_API_KEY` env or `apiKey` in config | Requires `npm install @anthropic-ai/sdk`. |
+| `ollama` | `baseUrl` (default: `http://localhost:11434`) | Local, no cost, no extra install. |
+
+> Note: Anthropic does not offer an embedding API. If you use `anthropic` as your LLM provider, you still need to choose a separate embedding provider (`openai` or `ollama`).
 
 ### Using local models (Ollama)
 
@@ -432,8 +444,8 @@ Chunk IDs are derived from `sha256(filePath + content)`. If a function's code do
 - **commander** — CLI framework
 - **fast-glob** — repository scanning
 - **tree-sitter** (optional) — AST-based symbol extraction for TS/JS
-- **openai** SDK — embedding generation and summarization
-- **@anthropic-ai/sdk** — Anthropic/Claude LLM provider
+- **openai** SDK _(optional)_ — embedding generation and OpenAI LLM provider; install with `npm install openai`
+- **@anthropic-ai/sdk** _(optional)_ — Anthropic/Claude LLM provider; install with `npm install @anthropic-ai/sdk`
 - **@xenova/transformers** — local cross-encoder model for `--rerank`
 - **hnsw** — HNSW index for sub-millisecond vector search
 - **chokidar** — file watching for `--watch` mode

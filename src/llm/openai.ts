@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import type {
   ChatMessage,
   ChatOptions,
@@ -8,9 +7,19 @@ import type {
 
 export class OpenAIProvider implements LLMProvider {
   readonly name = "openai";
-  private client: OpenAI;
+  // biome-ignore lint/suspicious/noExplicitAny: openai is an optional peer dependency
+  private client: any;
 
   constructor(apiKey: string) {
+    let OpenAI: any;
+    try {
+      // biome-ignore lint/suspicious/noExplicitAny: optional peer dependency
+      OpenAI = require("openai").default ?? require("openai");
+    } catch {
+      throw new Error(
+        'Package "openai" is not installed. Run: npm install openai',
+      );
+    }
     this.client = new OpenAI({ apiKey });
   }
 
