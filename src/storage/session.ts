@@ -55,7 +55,7 @@ export class SessionStorage {
     const existing = this.load();
     if (existing) {
       const idle = Date.now() - new Date(existing.lastActiveAt).getTime();
-      if (idle < SESSION_TIMEOUT_MS) return existing;
+      if (idle < 0 || idle < SESSION_TIMEOUT_MS) return existing;
     }
     return this.newSession();
   }

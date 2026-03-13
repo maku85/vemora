@@ -149,7 +149,7 @@ export function deduplicateBySimilarity(
       } else {
         tooSimilar =
           jaccardSimilarity(candidate.chunk.content, selected[i].chunk.content) >
-          0.8;
+          0.65;
       }
       if (tooSimilar) break;
     }

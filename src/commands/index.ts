@@ -27,12 +27,6 @@ import { scanRepository } from "../indexer/scanner";
 import { EmbeddingCacheStorage } from "../storage/cache";
 import { RepositoryStorage } from "../storage/repository";
 
-export interface IndexOptions {
-  /** Re-index all files, ignoring existing hashes */
-  force?: boolean;
-  /** Skip embedding generation (index only) */
-  noEmbed?: boolean;
-}
 
 export interface IndexOptions {
   /** Re-index all files, ignoring existing hashes */

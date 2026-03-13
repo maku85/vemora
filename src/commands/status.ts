@@ -66,7 +66,10 @@ export async function runStatus(rootDir: string): Promise<void> {
       return e.relatedFiles.some((f) => {
         const fileEntry = fileIndex[f];
         if (!fileEntry) return false;
-        return new Date(fileEntry.lastModified) > new Date(e.createdAt);
+        if (fileEntry.hash && e.createdAt) {
+          return new Date(fileEntry.lastModified) > new Date(e.createdAt);
+        }
+        return false;
       });
     });
 
