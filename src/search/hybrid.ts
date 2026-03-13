@@ -29,19 +29,19 @@ export async function hybridSearch(
 
   // 1. Get Vector Scores
   let vectorResults: SearchResult[] = [];
+  const oversample = topK * 3;
   if (queryEmbedding && queryEmbedding.length > 0) {
-    // We pass chunks.length to get all scores before filtering
     vectorResults = vectorSearch(
       queryEmbedding,
       chunks,
       cache,
       symbols,
-      chunks.length,
+      oversample,
     );
   }
 
   // 2. Get BM25 Scores
-  const bm25Results = computeBM25Scores(query, chunks, symbols, chunks.length);
+  const bm25Results = computeBM25Scores(query, chunks, symbols, oversample);
 
   // 3. Normalize and Combine
   const combinedMap = new Map<

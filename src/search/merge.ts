@@ -116,13 +116,17 @@ export function deduplicateBySimilarity(
 ): SearchResult[] {
   if (results.length <= 1) return results;
 
-  /** Looks up the stored embedding for a chunk ID from the cache. */
+  // Precompute a mapping from chunk ID to embedding for O(1) retrieval during deduplication.
+  let idToIndex: Map<string, number> | undefined;
+  if (cache && cache.chunkIds) {
+    idToIndex = new Map(cache.chunkIds.map((id, i) => [id, i]));
+  }
   const embeddingOf = (id: string): number[] | null => {
     if (!cache) return null;
     // Dense binary format (chunkIds + vectors buffer)
-    if (cache.chunkIds && cache.vectors) {
-      const idx = cache.chunkIds.indexOf(id);
-      if (idx !== -1) {
+    if (cache.chunkIds && cache.vectors && idToIndex) {
+      const idx = idToIndex.get(id);
+      if (idx !== undefined) {
         const dims = cache.dimensions;
         return Array.from(cache.vectors.subarray(idx * dims, idx * dims + dims));
       }

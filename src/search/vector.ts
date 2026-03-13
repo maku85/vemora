@@ -89,15 +89,16 @@ export function vectorSearch(
         { efSearch: 64 },
       );
 
-      const chunkResults: SearchResult[] = [];
-      for (const res of hnswResults) {
-        const chunkId = chunkIds[res.id];
-        const chunk = chunks.find((c) => c.id === chunkId);
-        if (chunk) {
-          const symbol = chunk.symbol ? symbols[chunk.symbol] : undefined;
-          chunkResults.push({ chunk, score: res.score, symbol });
+        const chunkById = new Map(chunks.map(c => [c.id, c]));
+        const chunkResults: SearchResult[] = [];
+        for (const res of hnswResults) {
+          const chunkId = chunkIds[res.id];
+          const chunk = chunkById.get(chunkId);
+          if (chunk) {
+            const symbol = chunk.symbol ? symbols[chunk.symbol] : undefined;
+            chunkResults.push({ chunk, score: res.score, symbol });
+          }
         }
-      }
 
       chunkResults.sort((a, b) => b.score - a.score);
       return chunkResults.slice(0, topK);
