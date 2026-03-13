@@ -1,7 +1,7 @@
 import type { EmbeddingProvider } from "./provider";
 
 /** Maximum inputs per API call (OpenAI allows up to 2048) */
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 2048;
 
 export class OpenAIEmbeddingProvider implements EmbeddingProvider {
   readonly name = "openai";

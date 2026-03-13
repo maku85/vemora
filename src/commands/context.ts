@@ -250,7 +250,7 @@ export async function runContext(
       new UsageStorage(config.projectId).append({
         ts: new Date().toISOString(),
         command: "context",
-        query: options.query.slice(0, 120),
+        query: options.query?.slice(0, 120),
         searchType,
         format: options.format,
         topK,
@@ -401,7 +401,13 @@ export function generateContextString(
     // Full file content
     const absPath = path.join(rootDir, relFile);
     if (fs.existsSync(absPath)) {
-      const content = fs.readFileSync(absPath, "utf-8");
+      // Resolve symlinks before reading to prevent traversal via symlinks
+      const realRoot = fs.realpathSync(path.resolve(rootDir));
+      const realPath = fs.realpathSync(absPath);
+      if (!realPath.startsWith(realRoot + path.sep) && realPath !== realRoot) {
+        throw new Error(`File path escapes project root via symlink: ${options.file}`);
+      }
+      const content = fs.readFileSync(realPath, "utf-8");
       const ext = relFile.split(".").pop() ?? "";
       if (fmt === "markdown") {
         lines.push(`\`\`\`${ext}`);

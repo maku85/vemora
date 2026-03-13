@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { loadConfig } from "../core/config";
 import type { KnowledgeEntry } from "../core/types";
 import { KnowledgeStorage } from "../storage/knowledge";
+import { RepositoryStorage } from "../storage/repository";
 
 export interface RememberOptions {
   category?: "decision" | "pattern" | "gotcha" | "glossary";
@@ -29,6 +30,8 @@ export async function runRemember(
   }
 
   const storage = new KnowledgeStorage(rootDir);
+  const repo = new RepositoryStorage(rootDir);
+  const fileIndex = repo.loadFiles();
   const entries = storage.load();
 
   // Warn if a similar entry already exists (simple token overlap)
@@ -78,6 +81,18 @@ export async function runRemember(
           .split(",")
           .map((f) => f.trim())
           .filter(Boolean)
+      : undefined,
+    relatedFileHashes: options.files
+      ? Object.fromEntries(
+          options.files
+            .split(",")
+            .map((f) => f.trim())
+            .filter(Boolean)
+            .flatMap((f) => {
+              const entry = fileIndex[f];
+              return entry?.hash ? [[f, entry.hash]] : [];
+            }),
+        )
       : undefined,
     relatedSymbols: options.symbols
       ? options.symbols

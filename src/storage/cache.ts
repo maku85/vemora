@@ -3,6 +3,9 @@ import os from "os";
 import path from "path";
 import type { EmbeddingCache } from "../core/types";
 
+/** Maximum allowed size for embeddings.bin (512 MB) */
+const MAX_CACHE_BYTES = 512 * 1024 * 1024;
+
 /**
  * Manages the local per-developer embedding cache.
  *
@@ -43,6 +46,10 @@ export class EmbeddingCacheStorage {
       // New format: load metadata + binary vectors
       if (!fs.existsSync(this.binPath)) return metadata;
 
+      const { size } = fs.statSync(this.binPath);
+      if (size > MAX_CACHE_BYTES) {
+        throw new Error(`Cache file too large (${size} bytes): ${this.binPath}`);
+      }
       const binBuffer = fs.readFileSync(this.binPath);
       // Slice to a fresh ArrayBuffer to guarantee 4-byte alignment regardless
       // of Node.js buffer pool offsets (avoids RangeError on misaligned views).

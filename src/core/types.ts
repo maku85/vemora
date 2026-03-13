@@ -255,6 +255,8 @@ export interface KnowledgeEntry {
   body: string;
   /** Project-relative file paths this entry is about */
   relatedFiles?: string[];
+  /** SHA-256 hashes of relatedFiles at creation time, keyed by path */
+  relatedFileHashes?: Record<string, string>;
   /** Symbol names this entry is about */
   relatedSymbols?: string[];
   /** ISO timestamp */

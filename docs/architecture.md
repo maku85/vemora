@@ -186,9 +186,14 @@ Entries that score only on category weight (no query/file/symbol match) are filt
 
 ```
 For each knowledge entry with relatedFiles:
-    fileIndex[relatedFile].lastModified > entry.createdAt
+    if entry has relatedFileHashes[file]:
+        fileIndex[file].hash !== relatedFileHashes[file]   ← content-based (immune to touch)
+    else (legacy entry without hash snapshot):
+        fileIndex[file].lastModified > entry.createdAt     ← timestamp fallback
     → print ⚠ warning with entry title and creation date
 ```
+
+New entries created by `ai-memory remember --files ...` store a SHA-256 hash snapshot of each related file at creation time (`relatedFileHashes` field in `KnowledgeEntry`). Staleness is then detected by hash comparison, not timestamp, so a `touch` or editor save without content changes no longer triggers a false-positive warning.
 
 ---
 

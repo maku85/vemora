@@ -9,8 +9,9 @@ import type { LLMProvider } from "./provider";
  */
 export function createLLMProvider(config: SummarizationConfig): LLMProvider {
   const apiKey =
-    process.env.OPENAI_API_KEY ||
-    process.env.ANTHROPIC_API_KEY ||
+    (config.provider === "anthropic"
+      ? process.env.ANTHROPIC_API_KEY
+      : process.env.OPENAI_API_KEY) ??
     config.apiKey;
 
   switch (config.provider) {
