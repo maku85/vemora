@@ -118,7 +118,7 @@ export async function runContext(
   let tokensSavedDedup = 0;
   let tokensSavedBudget = 0;
 
-  if (options.query) {
+  if (typeof options.query === "string" && options.query.length > 0) {
     const useKeyword = options.keyword || config.embedding.provider === "none";
     const useHybrid = options.hybrid;
 

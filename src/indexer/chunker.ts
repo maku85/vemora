@@ -21,7 +21,7 @@ export function chunkFile(
 ): Chunk[] {
   const lines = content.split("\n");
 
-  const hasBoundaries = symbols.some((s) => s.endLine > s.startLine);
+  const hasBoundaries = symbols.some((s) => s.endLine >= s.startLine);
 
   if (hasBoundaries) {
     return chunkBySymbols(filePath, lines, symbols, config);
@@ -101,8 +101,9 @@ function chunkBySymbols(
   const chunks: Chunk[] = [];
   const classHeaders = buildClassHeaders(lines, symbols);
 
+  // Miglioramento: includi anche simboli con endLine === startLine
   const bounded = symbols
-    .filter((s) => s.endLine > s.startLine)
+    .filter((s) => s.endLine >= s.startLine)
     .sort((a, b) => a.startLine - b.startLine);
 
   // Include the file header (imports, top-level declarations) as its own chunk

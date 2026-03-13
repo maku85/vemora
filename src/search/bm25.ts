@@ -20,9 +20,9 @@ interface BM25Cache {
 let bm25Cache: BM25Cache | null = null;
 
 function computeHash(chunks: Chunk[]): string {
-  // A simple fingerprint based on chunk IDs to know if the repo state changed
   if (chunks.length === 0) return "";
-  return `${chunks.length}:${chunks[0].id}:${chunks[chunks.length - 1].id}`;
+  const chunkIds = chunks.map((c) => c.id).sort();
+  return chunkIds.join("|");
 }
 
 export function computeBM25Scores(
