@@ -1,7 +1,3 @@
-import {
-  AutoModelForSequenceClassification,
-  AutoTokenizer,
-} from "@xenova/transformers";
 import type { SearchResult } from "../core/types";
 
 // biome-ignore lint/suspicious/noExplicitAny: @xenova/transformers has no exported TS types
@@ -12,14 +8,26 @@ let tokenizer: any = null;
 /**
  * Initializes the reranker model and tokenizer if not already loaded.
  * Model: Xenova/ms-marco-MiniLM-L-6-v2
+ *
+ * Requires the optional peer dependency `@xenova/transformers`:
+ *   npm install @xenova/transformers
  */
 async function initReranker() {
   if (!model) {
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic optional dependency
+    let transformers: any;
+    try {
+      transformers = require("@xenova/transformers");
+    } catch {
+      throw new Error(
+        "The --rerank flag requires @xenova/transformers.\n" +
+          "Install it with: npm install @xenova/transformers",
+      );
+    }
+    const { AutoModelForSequenceClassification, AutoTokenizer } = transformers;
     model = await AutoModelForSequenceClassification.from_pretrained(
       "Xenova/ms-marco-MiniLM-L-6-v2",
-      {
-        quantized: false,
-      },
+      { quantized: false },
     );
     tokenizer = await AutoTokenizer.from_pretrained(
       "Xenova/ms-marco-MiniLM-L-6-v2",
