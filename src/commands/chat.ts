@@ -66,7 +66,7 @@ export async function runChat(
     prompt: chalk.blue.bold("You > "),
   });
 
-  console.log(chalk.bold("\nWelcome to ai-memory chat!"));
+  console.log(chalk.bold("\nWelcome to vemora chat!"));
   console.log(chalk.gray(`Project: ${config.projectName}`));
   console.log(
     chalk.gray(

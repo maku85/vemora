@@ -1,0 +1,1291 @@
+{
+  "CLAUDE.md": {
+    "hash": "ee53ff6693bf586021970146d2e95c34e795f739c9b32b9e4eaa1eb5fd9e7e60",
+    "size": 6616,
+    "lastModified": "2026-03-13T20:34:06.529Z",
+    "chunks": [
+      "ade8aeffe7bddd68",
+      "299b84bc44171892"
+    ],
+    "symbols": []
+  },
+  "GEMINI.md": {
+    "hash": "a5029ddcbafbf0851ae5032f6d2f8a42676e01a53224ebb2ab28576b677e18c8",
+    "size": 6398,
+    "lastModified": "2026-03-13T20:34:46.444Z",
+    "chunks": [
+      "a61afc8c4b7952da",
+      "7a6d4498d00c74aa"
+    ],
+    "symbols": []
+  },
+  "README.md": {
+    "hash": "d15b0002fd74d6d3718648019d138f3e5ab50e1a315323087f57b0642efe240e",
+    "size": 16433,
+    "lastModified": "2026-03-13T20:34:01.488Z",
+    "chunks": [
+      "8263b760184a56d6",
+      "fab646e76378d2fb",
+      "07b6613fc03fe38e",
+      "3b750c9d55f77778",
+      "ba3a6057900308c7",
+      "b2941f1b4d66ac34",
+      "932ecd101fe9027b"
+    ],
+    "symbols": []
+  },
+  "biome.json": {
+    "hash": "cb5e142dee75959f4571ff8222791b6619218d43c7a77470a8f8dd779f5d2529",
+    "size": 511,
+    "lastModified": "2026-03-08T13:14:11.733Z",
+    "chunks": [
+      "ab3cea1e39061984"
+    ],
+    "symbols": []
+  },
+  "docs/architecture.md": {
+    "hash": "24cda96d765b0fdb3b662367396383e36bbe4d3a3c9d212453c8842cfca185f0",
+    "size": 20304,
+    "lastModified": "2026-03-13T20:34:22.695Z",
+    "chunks": [
+      "10f6f0c5fd3a6189",
+      "bf0ba11cdf3ca54f",
+      "d664bc8240c6c148"
+    ],
+    "symbols": [
+      "EmbeddingProvider"
+    ]
+  },
+  "docs/codebase.md": {
+    "hash": "f22830896472cc7400f8b69830eb75fcd7b67443e6c36cf62bf74d8747c63bf2",
+    "size": 35318,
+    "lastModified": "2026-03-13T20:34:34.553Z",
+    "chunks": [
+      "902f6a36cda312a3",
+      "efef60b5791ce482",
+      "940112487aee98eb"
+    ],
+    "symbols": [
+      "EmbeddingProvider"
+    ]
+  },
+  "docs/development.md": {
+    "hash": "9e893f858067a568fcdc6e7d12f18af262a85e2f08b11ef733144649d45e70dc",
+    "size": 19742,
+    "lastModified": "2026-03-13T20:34:10.904Z",
+    "chunks": [
+      "bbc137705d082b65",
+      "8da393a3a04cc2da",
+      "592ce827119eae64"
+    ],
+    "symbols": [
+      "MyProvider"
+    ]
+  },
+  "docs/features-planned.md": {
+    "hash": "0a833fd7e5ce037ab4a35b49bf9cf6c3021988ea601d3e6216335df4bfc92677",
+    "size": 6934,
+    "lastModified": "2026-03-13T20:34:33.505Z",
+    "chunks": [
+      "5d42e0dc1ae0aee5",
+      "23097ecce1c87b9e",
+      "ceae2f3e3328d152",
+      "12d707efa72ace21",
+      "4ee75e204b57e017",
+      "a11177d5a9339048",
+      "456c25204e1fa3dd",
+      "9fe7bc5da1db2d10"
+    ],
+    "symbols": [
+      "ComplexityMetrics",
+      "computeComplexity",
+      "FileCoverage",
+      "CoverageIndex",
+      "loadCoverageReport",
+      "chunkCoverage"
+    ]
+  },
+  "docs/issues.md": {
+    "hash": "fa58bfe619b796b493bcfe3b1be88d27c7118ee781e0e8309943e86e2e49ecc0",
+    "size": 2106,
+    "lastModified": "2026-03-13T20:34:32.272Z",
+    "chunks": [
+      "de4b1915bcf7e5cc"
+    ],
+    "symbols": []
+  },
+  "package.json": {
+    "hash": "1394b960e08d10770f173127691e4b4a0dc30b761ce84563628435df06348280",
+    "size": 1630,
+    "lastModified": "2026-03-13T20:33:56.418Z",
+    "chunks": [
+      "d8929cad75a844da"
+    ],
+    "symbols": []
+  },
+  "pnpm-lock.yaml": {
+    "hash": "f734f00d3d15c8a9352f876f8a103419abb8d14ec29ac4e1fc047b3b97df692c",
+    "size": 54025,
+    "lastModified": "2026-03-13T20:40:34.264Z",
+    "chunks": [
+      "c4f24189c6864952",
+      "889a61fd06c04119",
+      "da22c31336065d70",
+      "3ff0982cc20c0d12",
+      "f9c25378bda083b4",
+      "3a8e4bb1801380b3",
+      "946f001be2a45144",
+      "4105085dda7620dd",
+      "f71919a677e740b6",
+      "cdcf5f5f448089db",
+      "9ed2f088bf781850",
+      "0ed4333b2d4fbb8e",
+      "4fd5ab2d91cb7df9",
+      "da4c5c08ad613595",
+      "84b1b57382c0cd06",
+      "3bef9ff8da7298d3",
+      "87e1f18ecdeadc25",
+      "5b5e5309d2bd0d23",
+      "160e48225ae221ab",
+      "146962b96a98ad09",
+      "9759abe8881516aa",
+      "63518648f5f8bcad",
+      "623ace5dc3f68518",
+      "04ea853aacd16544",
+      "e8cb3e561e50d948"
+    ],
+    "symbols": []
+  },
+  "pnpm-workspace.yaml": {
+    "hash": "54cdbab9b72c613ee2985a120292e9f07c5fb9e3683c20a491946a89139370f6",
+    "size": 145,
+    "lastModified": "2026-03-08T22:10:49.750Z",
+    "chunks": [
+      "ddefe8478b9ff83f"
+    ],
+    "symbols": []
+  },
+  "src/cli.ts": {
+    "hash": "6530b97bce8ae513176c070c66859ed5e0f69e677cc4dabce6136b109103c40b",
+    "size": 24774,
+    "lastModified": "2026-03-13T20:40:07.306Z",
+    "chunks": [
+      "1d37821d3e594cd2",
+      "e3cdd6d171f656f4",
+      "a2bffd9ed48332b1"
+    ],
+    "symbols": [
+      "AgentTarget"
+    ]
+  },
+  "src/commands/ask.ts": {
+    "hash": "33a88a7f71054cf45c5cbc06a0c39ac0c691645d24d53a63d0b0fd13d0265a9f",
+    "size": 7038,
+    "lastModified": "2026-03-13T20:36:33.572Z",
+    "chunks": [
+      "cb0156fa7ae71725",
+      "d577d693befa1817",
+      "fdc6f60c174d00ec",
+      "aed72b3814b008eb",
+      "c18f748a2bdc0ee6"
+    ],
+    "symbols": [
+      "AskOptions",
+      "runAsk"
+    ]
+  },
+  "src/commands/bench.ts": {
+    "hash": "a236250def3a75d7f6cbde6ae6dd8d4ae4a1ef14d1c4a36aabf23bd0aa97e9ce",
+    "size": 5177,
+    "lastModified": "2026-03-13T20:36:33.579Z",
+    "chunks": [
+      "a5e60942cec75074",
+      "e65e4e18f1503b12",
+      "a05de079e2ad017e",
+      "42117085bea401fa"
+    ],
+    "symbols": [
+      "BenchOptions",
+      "runBench"
+    ]
+  },
+  "src/commands/chat.ts": {
+    "hash": "f312728d9f806a2190c824b30f20df932c782a3f07390442d371a1089658ebc6",
+    "size": 6630,
+    "lastModified": "2026-03-13T20:36:33.573Z",
+    "chunks": [
+      "24f87eab68bf48ac",
+      "6b8467c8fdd58f8b",
+      "4eaebccadfd4f17b",
+      "9bd7b06a1a4f34ca",
+      "7d2564fa7772d820"
+    ],
+    "symbols": [
+      "ChatOptions",
+      "runChat"
+    ]
+  },
+  "src/commands/context.ts": {
+    "hash": "491175a7ce93964680d735cb2eb1d3abcab6ed728ce5b2ef1005f0c275b52554",
+    "size": 37591,
+    "lastModified": "2026-03-13T20:36:33.583Z",
+    "chunks": [
+      "b5d2d2f5997048ac",
+      "c3f9e15f641da802",
+      "91dbc383bb26ae53",
+      "72ab42a3041f3733",
+      "c2615941726eb5f9",
+      "8a7957fcd557747b",
+      "cf2038b33ae67849"
+    ],
+    "symbols": [
+      "ContextOptions",
+      "runContext",
+      "generateContextString",
+      "rankKnowledgeEntries",
+      "generateStructuredContextString",
+      "resolveRelPath"
+    ]
+  },
+  "src/commands/deps.ts": {
+    "hash": "a6994fb350611ffce06ef4e96fc110b1ba63831931b58c7278c7105da24adaf5",
+    "size": 5068,
+    "lastModified": "2026-03-13T20:40:11.998Z",
+    "chunks": [
+      "68fbfacaa16f7dab",
+      "0923ee46dbc06ede",
+      "817ff5cae0add54a",
+      "eab99f899b82651c",
+      "455ae45f4d1bd2e4"
+    ],
+    "symbols": [
+      "DepsOptions",
+      "runDeps",
+      "formatSymbols"
+    ]
+  },
+  "src/commands/index.ts": {
+    "hash": "ab544571173251a70f0d5a53cfe74ec5dff41502cf62325bdc12c60ccb8be19d",
+    "size": 16785,
+    "lastModified": "2026-03-13T20:36:33.577Z",
+    "chunks": [
+      "b0a4b8de60e9c7c2",
+      "823683ac84bc94e1",
+      "3f9e9c84db53f2b8",
+      "90b40a8e90313387",
+      "193779feb2a5475f",
+      "926b9be555c541de",
+      "77938493533e9bcf",
+      "4371b2a624f75fbe",
+      "47d9a17212ea91b6",
+      "59fd9933f54a97c7",
+      "f252fc038fa504a8"
+    ],
+    "symbols": [
+      "IndexOptions",
+      "runIndex",
+      "performIndexIteration",
+      "updateMetadata",
+      "startWatcher",
+      "generateEmbeddings",
+      "rebuildHNSWIndex"
+    ]
+  },
+  "src/commands/init-agent.ts": {
+    "hash": "0bf3fd566e7de4e10df3f6542fa5df74fae51ccacb363475dff6e341dde3b3f8",
+    "size": 15676,
+    "lastModified": "2026-03-13T20:40:18.924Z",
+    "chunks": [
+      "684e9086fe5f5a97",
+      "de424c556cac0d4c",
+      "687d1f2415192c74",
+      "a4eabc1186030846",
+      "4e6ad8a7a80cd896",
+      "fd7eeef8140ebc84",
+      "b54b0749eb3d0a8a",
+      "71fc09f709f6b363",
+      "5a0fa7059711a523",
+      "406aff890f2d18fc",
+      "a762bc0ffeb7140a",
+      "ed5070ea343c16c3",
+      "6b99011a03d98b6f",
+      "8c3223f6bedbe3ab",
+      "a5f89d4bdeb9d973",
+      "6420114e6dca530f",
+      "1f26772112f346db",
+      "aab24ab001ba571c"
+    ],
+    "symbols": [
+      "AgentTarget",
+      "InitAgentOptions",
+      "MARKER_START",
+      "MARKER_END",
+      "DEFAULT_INSTRUCTIONS",
+      "runInitAgent",
+      "writeAgentFile",
+      "writeClaudeFile",
+      "writeCopilotFile",
+      "writeCursorFile",
+      "writeGeminiFile",
+      "writeWindsurfFile",
+      "mergeOrOverwrite",
+      "printNoMarkersWarning",
+      "buildGeneratedBlock",
+      "detectNpmScripts"
+    ]
+  },
+  "src/commands/init-claude.ts": {
+    "hash": "9c69bd7fbc4413cb078df1cd1a980cd4c83e6413fc140fc296a5b54fb10f07c6",
+    "size": 370,
+    "lastModified": "2026-03-13T20:40:22.444Z",
+    "chunks": [
+      "abbcdba9d23de725",
+      "527fdcaa45e36919"
+    ],
+    "symbols": [
+      "InitClaudeOptions",
+      "runInitClaude"
+    ]
+  },
+  "src/commands/init.ts": {
+    "hash": "98abb78850ec80f352dd598b1d4c0d8e055f036dc75f2afc1e24ee174b0f3797",
+    "size": 5950,
+    "lastModified": "2026-03-13T20:40:25.172Z",
+    "chunks": [
+      "74ccbec2b380ddfb",
+      "e786c15dd8293543",
+      "fa0c481af8932d14",
+      "ec315bfd9404d073",
+      "1428f51f4ccec769"
+    ],
+    "symbols": [
+      "runInit",
+      "detectProjectName",
+      "ensureGitignore"
+    ]
+  },
+  "src/commands/knowledge.ts": {
+    "hash": "85b2211905928b48e801b25fbf0a357aea46e91c0be5c88af468960795a56ea4",
+    "size": 4058,
+    "lastModified": "2026-03-13T20:36:33.578Z",
+    "chunks": [
+      "421ccaf0a9c26e5c",
+      "af6536fd6f86dd7d",
+      "4c6a4af26344b3d1",
+      "90e58d476eac305b",
+      "3ef2f34f44bef7b6"
+    ],
+    "symbols": [
+      "KnowledgeListOptions",
+      "runKnowledgeList",
+      "runKnowledgeForget"
+    ]
+  },
+  "src/commands/overview.ts": {
+    "hash": "5abaa94fd2b656b228a24e3265fc5b920353fe5b624278d437f8ec654b624ff6",
+    "size": 570,
+    "lastModified": "2026-03-13T20:36:33.574Z",
+    "chunks": [
+      "dc08c78b1a97f085"
+    ],
+    "symbols": [
+      "runOverview"
+    ]
+  },
+  "src/commands/query.ts": {
+    "hash": "51871253df2dd1d57ca65f72c5c51d0c99c553f9aef1f362e35edaa5c81d6f9c",
+    "size": 19764,
+    "lastModified": "2026-03-13T20:36:33.576Z",
+    "chunks": [
+      "c47f93a6a550eaa9",
+      "71209960f57839f6",
+      "5de8e0157702b226",
+      "52808ea3d7bf0651",
+      "5717c66b8866e1b4",
+      "0cf5c7f66aac267f",
+      "14bb6cb5e99c92c5",
+      "1ff49aed1240869e",
+      "b3773fd40e3b0d7c"
+    ],
+    "symbols": [
+      "QueryOptions",
+      "runQuery"
+    ]
+  },
+  "src/commands/remember.ts": {
+    "hash": "5ad3601dc13bae576ed4684e39a5c8bb1a702a899c6d2371a96633623b2bee03",
+    "size": 3628,
+    "lastModified": "2026-03-13T20:36:33.583Z",
+    "chunks": [
+      "6e2d29155d54a0f5",
+      "e5d6e160fd22f846",
+      "22c403250da480d9",
+      "76582463380b7d41"
+    ],
+    "symbols": [
+      "RememberOptions",
+      "runRemember"
+    ]
+  },
+  "src/commands/report.ts": {
+    "hash": "0508b575bcbce5777485cf4828b4def14cddff6e73f216f8db1de2cabbe6f93e",
+    "size": 9399,
+    "lastModified": "2026-03-13T20:36:33.579Z",
+    "chunks": [
+      "bfd63eaad9574d1e",
+      "375f779c125423bf",
+      "56c06b871526314f",
+      "458596c9fdb4dd49",
+      "8ad16b81d0d686d6",
+      "e33f487a062df654",
+      "6b5286625f6ed58e",
+      "edf13e0063c11992",
+      "5a8f5414e0ab207a"
+    ],
+    "symbols": [
+      "ReportOptions",
+      "pct",
+      "fmt",
+      "bar",
+      "topTerms",
+      "runReport"
+    ]
+  },
+  "src/commands/status.ts": {
+    "hash": "cd2c3ecc8ac02bfaa8a2fb967a958beed25a8fa58f85e9432309615d63c2be74",
+    "size": 4977,
+    "lastModified": "2026-03-13T20:36:33.584Z",
+    "chunks": [
+      "875a4091e76bb0fe",
+      "1beb5607ed924414",
+      "b8d24f37f895be67"
+    ],
+    "symbols": [
+      "runStatus"
+    ]
+  },
+  "src/commands/summarize.ts": {
+    "hash": "32bff702cd12946f8accb85764a9d7afd8a2bbbcda8620ba5d1334c506e53cfc",
+    "size": 9103,
+    "lastModified": "2026-03-13T20:36:33.584Z",
+    "chunks": [
+      "1f4e251c6513234d",
+      "afc2d6bc5769f417",
+      "53604603e2feac68",
+      "4eebfafe8322a3dd",
+      "43e59c900ec1d871",
+      "7c64fad6e87ce96d",
+      "ba17561139790dd2"
+    ],
+    "symbols": [
+      "SummarizeOptions",
+      "fileSummaryPrompt",
+      "projectOverviewPrompt",
+      "runSummarize"
+    ]
+  },
+  "src/core/config.ts": {
+    "hash": "97431977e04df7ec4df3c23377bda3f53926ad4d7638348822d54f30ffa3e19d",
+    "size": 4672,
+    "lastModified": "2026-03-13T20:40:28.241Z",
+    "chunks": [
+      "54289c188eda80d6",
+      "b98072660b01bc00",
+      "adf0bfd1e2758d5b",
+      "63b291ba8389d532",
+      "ffed42233a00c146",
+      "3672ff7f83d0b911",
+      "ccf31862bd6918ef",
+      "4836ee6d7858860a",
+      "48221b1c2eee053d",
+      "dd0e70ff5417e823",
+      "de881283c514cff6",
+      "cbee7e247386f475",
+      "e0ffa4dcc8a48da0",
+      "96ef1215e0acf51b",
+      "5d19538e85dd950c",
+      "1f9fce07b18771d5",
+      "695a3ee8a32f3758",
+      "829c7306b10cec41",
+      "1d436c2ff5644d4c",
+      "d1ec0499ac3cfe3b",
+      "6fddffe6b5249ac8",
+      "1531ee495625ba7c",
+      "e15b130e469cd4a6",
+      "586faef7ba742b36",
+      "ce2305e8514c3b0e"
+    ],
+    "symbols": [
+      "AI_MEMORY_DIR",
+      "AI_MEMORY_CACHE_DIR",
+      "CONFIG_FILE",
+      "METADATA_FILE",
+      "INDEX_DIR",
+      "FILES_JSON",
+      "CHUNKS_JSON",
+      "SYMBOLS_JSON",
+      "DEPS_JSON",
+      "CALLGRAPH_JSON",
+      "TODOS_JSON",
+      "SUMMARIES_DIR",
+      "FILE_SUMMARIES_JSON",
+      "PROJECT_SUMMARY_JSON",
+      "KNOWLEDGE_DIR",
+      "KNOWLEDGE_JSON",
+      "getMemoryDir",
+      "getIndexDir",
+      "getSummariesDir",
+      "getLocalCacheDir",
+      "generateProjectId",
+      "getDefaultConfig",
+      "loadConfig",
+      "saveConfig"
+    ]
+  },
+  "src/core/types.ts": {
+    "hash": "cd17845f1c40aa8bfe9a739d5b512452b5e881b921bbdcd1ac1dce2e6eb62812",
+    "size": 9913,
+    "lastModified": "2026-03-13T20:36:33.588Z",
+    "chunks": [
+      "a5f6fdc551f94d42",
+      "0b67dca4fcda6600",
+      "599198e7e0cffa88",
+      "d38474316f0ce119",
+      "0734de6efc74a796",
+      "33209db631507213",
+      "08bc9650b7ea1632",
+      "23e1a12530fcd6a0",
+      "d65b9627e732a13c",
+      "7726ad04bc60c324",
+      "e4e8b72150bd4588",
+      "0d6d7f56d61e6a5e",
+      "6ba626944b3d1f00",
+      "b98701aa82b1af59",
+      "fb1520854b8ce47c",
+      "843ef911a3d8cd3a",
+      "bbc8baf987a76dbd",
+      "471d0bd02f9e84a4",
+      "f1e22e7262d00ea3",
+      "d51682e068a70030",
+      "0d6b220be09637c4",
+      "8142e0e78de5c18f"
+    ],
+    "symbols": [
+      "DisplayConfig",
+      "AiMemoryConfig",
+      "SummarizationConfig",
+      "EmbeddingConfig",
+      "FileIndex",
+      "FileEntry",
+      "Chunk",
+      "SymbolIndex",
+      "SymbolEntry",
+      "DependencyGraph",
+      "FileDependencies",
+      "ImportEntry",
+      "CallGraphEntry",
+      "CallGraph",
+      "Metadata",
+      "FileSummaryIndex",
+      "FileSummary",
+      "ProjectSummary",
+      "EmbeddingCache",
+      "KnowledgeEntry",
+      "TodoAnnotation",
+      "SearchResult"
+    ]
+  },
+  "src/embeddings/factory.ts": {
+    "hash": "681a31c35dcf63d892e3271f0a107e9d0598cb1172acd58739ce72888689ef37",
+    "size": 1134,
+    "lastModified": "2026-03-13T20:36:33.589Z",
+    "chunks": [
+      "e249a31f4a0c9450",
+      "3f1fdda437e965b0"
+    ],
+    "symbols": [
+      "createEmbeddingProvider"
+    ]
+  },
+  "src/embeddings/noop.ts": {
+    "hash": "f379b45fd98f8f971708feca8d50c7d07ebee23247ed91f954a9e139d061dffc",
+    "size": 625,
+    "lastModified": "2026-03-13T20:36:33.588Z",
+    "chunks": [
+      "1997257b97d0ea61",
+      "1aa1f2cc73a2f196",
+      "47df6d77d08240d9"
+    ],
+    "symbols": [
+      "NoopEmbeddingProvider",
+      "NoopEmbeddingProvider.embed"
+    ]
+  },
+  "src/embeddings/ollama.ts": {
+    "hash": "0a33854e4d8064c1cf6546e4788c2c038625008bcd6df3f0effb75a2db8dafc4",
+    "size": 1465,
+    "lastModified": "2026-03-13T20:36:33.589Z",
+    "chunks": [
+      "f6154c19accd00c5",
+      "48c372cc7a796dae",
+      "b0f9275ef043d67c"
+    ],
+    "symbols": [
+      "OllamaEmbedResponse",
+      "OllamaEmbeddingProvider",
+      "OllamaEmbeddingProvider.embed"
+    ]
+  },
+  "src/embeddings/openai.ts": {
+    "hash": "6517ccdf8f6121cfafe55976ced8fbbd4c7bfda7afb3bd835e3e836afcd19ac0",
+    "size": 2332,
+    "lastModified": "2026-03-13T20:36:33.588Z",
+    "chunks": [
+      "e204ce6d68de8d6e",
+      "eb031066ffd8fd54",
+      "bc136355e95719fe"
+    ],
+    "symbols": [
+      "OpenAIEmbeddingProvider",
+      "OpenAIEmbeddingProvider.embed"
+    ]
+  },
+  "src/embeddings/provider.ts": {
+    "hash": "be9e5132077edb15800c8de1c655008763774f86aaa7b7e861cab49a2db77190",
+    "size": 600,
+    "lastModified": "2026-03-13T20:36:33.588Z",
+    "chunks": [
+      "eb2ae18b85b684e5",
+      "ceca8bc6f53c472a"
+    ],
+    "symbols": [
+      "EmbeddingProvider"
+    ]
+  },
+  "src/indexer/callgraph.ts": {
+    "hash": "e6d6a1b63624a5c9b89491df7c7221deffd0d3f9c7e52907641cd3f1965b8526",
+    "size": 5575,
+    "lastModified": "2026-03-13T20:36:33.569Z",
+    "chunks": [
+      "0ce0462774732307",
+      "d5a8145c58ffa7aa",
+      "314472f58e3a99b0",
+      "bb2d05de0dc0b8db",
+      "c2532486d263c8d2"
+    ],
+    "symbols": [
+      "CallGraphContext",
+      "extractFileCalls",
+      "resolveCall",
+      "buildGlobalCallGraph"
+    ]
+  },
+  "src/indexer/chunkBySlidingWindow.ts": {
+    "hash": "902b90eb83e4376ff89fbf88e22b12c377ff6e20f3c7a7ac8fdfe98f7cc57e45",
+    "size": 1096,
+    "lastModified": "2026-03-13T20:36:33.571Z",
+    "chunks": [
+      "b64389a3fbca8ea2",
+      "0161aedc717562e4",
+      "07db4840056ab443"
+    ],
+    "symbols": [
+      "chunkBySlidingWindow",
+      "makeChunk"
+    ]
+  },
+  "src/indexer/chunkBySymbols.ts": {
+    "hash": "9a70af2131607ba98601ef5cea095e07bc9732deb470b538fc16a02b52508470",
+    "size": 2411,
+    "lastModified": "2026-03-13T20:36:33.568Z",
+    "chunks": [
+      "0e2759930c712f7b",
+      "5b3d4caa124ebfcd",
+      "cb18769bfd75f106"
+    ],
+    "symbols": [
+      "chunkBySymbols",
+      "makeChunk"
+    ]
+  },
+  "src/indexer/chunker.ts": {
+    "hash": "53458c930239e605ef3e8e2ab8223608b9c93bf182f24726d20fee584ae2dd0e",
+    "size": 1089,
+    "lastModified": "2026-03-13T20:36:33.571Z",
+    "chunks": [
+      "4649526a44379493",
+      "1d4152878df317ec"
+    ],
+    "symbols": [
+      "chunkFile"
+    ]
+  },
+  "src/indexer/classHeader.ts": {
+    "hash": "dc05226855ecc48826cb6a8ffd339d813e889f9ab909cbfe8ebcd358b787f902",
+    "size": 1263,
+    "lastModified": "2026-03-13T20:36:33.571Z",
+    "chunks": [
+      "f46944779478e9e0",
+      "72dc8fc23e87a83e"
+    ],
+    "symbols": [
+      "CLASS_HEADER_MAX_LINES",
+      "buildClassHeaders"
+    ]
+  },
+  "src/indexer/deps.ts": {
+    "hash": "62783d698ccbfaa719ed935c2b0219e555d7cad44681ae1630bd9cf63ec1536b",
+    "size": 13906,
+    "lastModified": "2026-03-13T20:36:33.570Z",
+    "chunks": [
+      "fa7a250c73f38364",
+      "30af6b26af0ad6c4",
+      "3a79d6bffc2e0a25",
+      "0cf2534a8edccca2",
+      "4a57c7e8791a302a",
+      "6a8f0e64f70d5e9a",
+      "11215001ea082aa6",
+      "f609537f4ef18d34",
+      "c2d2f39453c44879",
+      "b600b30e47a3a36e",
+      "22c71165cfd5854f",
+      "aad14434cc5b3cb7",
+      "b0aeef62e93f5bc9",
+      "7054ed1502de5365",
+      "3db1bf8ecc51f03e"
+    ],
+    "symbols": [
+      "TsPathAlias",
+      "loadTsPathAliases",
+      "resolveAlias",
+      "RawImport",
+      "extractRawImports",
+      "parseNamedImports",
+      "isRelative",
+      "resolveImport",
+      "extractFileImports",
+      "updateDependencyGraph",
+      "computeImportedBy",
+      "getTransitiveDeps",
+      "detectCycles",
+      "graphStats"
+    ]
+  },
+  "src/indexer/hasher.ts": {
+    "hash": "e379330b3eb79b46388c190c0f8c874545fb88aed664acf7d6634373dcd2acec",
+    "size": 717,
+    "lastModified": "2026-03-13T20:36:33.569Z",
+    "chunks": [
+      "873e7dd3d8f1f262",
+      "203675dac7c378d8",
+      "d63d111365d18eb3"
+    ],
+    "symbols": [
+      "hashFile",
+      "hashContent"
+    ]
+  },
+  "src/indexer/parser.ts": {
+    "hash": "935dbeac7506442edfb1ae616dd51d92227dc21341dc127cbd268bcc2b21adfa",
+    "size": 11638,
+    "lastModified": "2026-03-13T20:36:33.568Z",
+    "chunks": [
+      "ef5d2702f088ad7e",
+      "f594c23c1f1f8e87",
+      "53e1fa487d4c235f",
+      "1f1236a7e273687a",
+      "05f6e00d1c82b09c",
+      "37865833546c67be",
+      "8d21e82190416668",
+      "b5625355f5d1a16e",
+      "5d6d8085d19f572c",
+      "ee2b4df389db0d34",
+      "7c22926d644a59eb",
+      "d2b86c9d834a93c5"
+    ],
+    "symbols": [
+      "TreeSitterParserInstance",
+      "TreeNode",
+      "ParsedSymbol",
+      "parseSymbols",
+      "buildSymbolIndex",
+      "parseWithTreeSitter",
+      "visitNode",
+      "findEndLine",
+      "parseWithRegex"
+    ]
+  },
+  "src/indexer/scanner.ts": {
+    "hash": "2973a055c1a5cffb1b041371741fed1113ae7721154dfebdabec8ca93cd7d2f8",
+    "size": 1258,
+    "lastModified": "2026-03-13T20:36:33.569Z",
+    "chunks": [
+      "9901edf27b3354e8",
+      "90ed1a006564af43"
+    ],
+    "symbols": [
+      "ScannedFile",
+      "scanRepository"
+    ]
+  },
+  "src/indexer/strategy.ts": {
+    "hash": "bc7256a03c19db6fc126a8e392812d1d27fa72683018696d21af3aaab11b474c",
+    "size": 805,
+    "lastModified": "2026-03-13T20:36:33.568Z",
+    "chunks": [
+      "ff4529ce15cb031f",
+      "75072c70526446a8"
+    ],
+    "symbols": [
+      "selectChunkingStrategy"
+    ]
+  },
+  "src/indexer/tests.ts": {
+    "hash": "abf2f1b62b60f5cc11a27c3b99895d99e1507db85c9cae2b2ed15536fbc00236",
+    "size": 2682,
+    "lastModified": "2026-03-13T20:36:33.572Z",
+    "chunks": [
+      "b65847e708ba13cc",
+      "4688620814b12ff4"
+    ],
+    "symbols": [
+      "findTestFiles"
+    ]
+  },
+  "src/indexer/todos.ts": {
+    "hash": "5301387c836f0d37a33cf1db0e4efca3baff496f202e3d6b44196551c98f1a3a",
+    "size": 907,
+    "lastModified": "2026-03-13T20:36:33.570Z",
+    "chunks": [
+      "04f7b468aaf22244",
+      "75547ff1896f446a"
+    ],
+    "symbols": [
+      "extractTodos"
+    ]
+  },
+  "src/llm/anthropic.ts": {
+    "hash": "95cf33bf994e81fb4ffb824862cc991cb78f791c062d1d72040635253b54864c",
+    "size": 2819,
+    "lastModified": "2026-03-13T20:36:33.567Z",
+    "chunks": [
+      "2a0c726f334756dc",
+      "2acec328ecc30c6d",
+      "d9b0adc4cfa9f78e",
+      "d939ae8346e480bf"
+    ],
+    "symbols": [
+      "AnthropicProvider",
+      "AnthropicProvider.chat"
+    ]
+  },
+  "src/llm/factory.ts": {
+    "hash": "c28d2ce504d21b2d2087eb6e87ca7e9b2d0cdc0c1e00a2274fe099ff8580c79a",
+    "size": 1017,
+    "lastModified": "2026-03-13T20:36:33.567Z",
+    "chunks": [
+      "105f578afc258be4",
+      "26b6d6a4d10c9bc3"
+    ],
+    "symbols": [
+      "createLLMProvider"
+    ]
+  },
+  "src/llm/ollama.ts": {
+    "hash": "581d0ce69ec1489bbbf131de3780cf909f227edf5a7767108742f26403f0a81c",
+    "size": 2662,
+    "lastModified": "2026-03-13T20:36:33.567Z",
+    "chunks": [
+      "03b552662d9070d8",
+      "d6e1dcfe7405f667",
+      "4e882eb0d69bbc37",
+      "3d5770cc151f5190"
+    ],
+    "symbols": [
+      "OllamaProvider",
+      "OllamaProvider.chat"
+    ]
+  },
+  "src/llm/openai.ts": {
+    "hash": "79a13fd23f8f7d5327429fa29549ee24ae95385f65ad57164fef7243a93dfa40",
+    "size": 2146,
+    "lastModified": "2026-03-13T20:36:33.566Z",
+    "chunks": [
+      "12ab8134be91f9be",
+      "3e7a674d9e03f98a",
+      "4bbe455bbe4bc3ba"
+    ],
+    "symbols": [
+      "OpenAIProvider",
+      "OpenAIProvider.chat"
+    ]
+  },
+  "src/llm/provider.ts": {
+    "hash": "d3c521d156e18937cd17c08ac929104c1fe7fdd5ad78521bb031ab1915e7b808",
+    "size": 702,
+    "lastModified": "2026-03-13T20:36:33.567Z",
+    "chunks": [
+      "a1f364f3f1a1ce87",
+      "878211349990e848",
+      "bd8bb6bf226eef01",
+      "0ce264dacc654a79"
+    ],
+    "symbols": [
+      "ChatMessage",
+      "ChatOptions",
+      "LLMResponse",
+      "LLMProvider"
+    ]
+  },
+  "src/search/bm25.ts": {
+    "hash": "c5a7477fcc11ef95ea6e0945528bb7c84afacde32f47cf23a0cafbf2c562a390",
+    "size": 3632,
+    "lastModified": "2026-03-13T20:36:33.592Z",
+    "chunks": [
+      "b8fd34b7b9f3b594",
+      "129a0c4e6015d672",
+      "9f347d3b0c962281",
+      "3251bd6915264ef6",
+      "bc2d6ea0a26df30b"
+    ],
+    "symbols": [
+      "BM25Cache",
+      "computeHash",
+      "computeBM25Scores"
+    ]
+  },
+  "src/search/formatter.ts": {
+    "hash": "56785b3edd9af74f412ed5ead50fa1de141927942662a679e00fd2a8c79821bc",
+    "size": 8770,
+    "lastModified": "2026-03-13T20:36:33.590Z",
+    "chunks": [
+      "c8dabfc100300d70",
+      "b417de9149ce4f16",
+      "151ddcb6fd25a13f",
+      "96cdf3a9d7d642a4",
+      "bfd260db0f3bfe63",
+      "e6bb14ad5c317ab0",
+      "e4797ba31d72523f",
+      "ab1f4f9265392557",
+      "3d52506b30885dc3"
+    ],
+    "symbols": [
+      "OutputFormat",
+      "FormatOptions",
+      "formatTerse",
+      "JsonResult",
+      "JsonOutput",
+      "formatJson",
+      "formatMarkdown"
+    ]
+  },
+  "src/search/hybrid.ts": {
+    "hash": "55788506f36070d3dc1f1974cbcbe9aef74e884dd07106aeacb473ad62454293",
+    "size": 2539,
+    "lastModified": "2026-03-13T20:36:33.590Z",
+    "chunks": [
+      "ea6b6a33fb87cc61",
+      "e3ae90109406b946",
+      "829625d13e1174d0"
+    ],
+    "symbols": [
+      "HybridOptions",
+      "hybridSearch"
+    ]
+  },
+  "src/search/merge.ts": {
+    "hash": "dfeb4814de2c642eeb8c36b71c194a398cac70f467d241ab081f2b0e253237d3",
+    "size": 6165,
+    "lastModified": "2026-03-13T20:36:33.592Z",
+    "chunks": [
+      "56530c70ab5ac245",
+      "46ba2fe24c602761",
+      "a6c25f02a1b13cc5",
+      "d3358514eb5ee6be",
+      "62f478c1597004fe"
+    ],
+    "symbols": [
+      "mergeAdjacentChunks",
+      "deduplicateBySimilarity",
+      "jaccardSimilarity",
+      "wordTokens"
+    ]
+  },
+  "src/search/mmr.ts": {
+    "hash": "d4ea28c77e0838e147f11eb55dfb90b4a2d54d489ee0308b86cd20484dd6078f",
+    "size": 3866,
+    "lastModified": "2026-03-13T20:36:33.589Z",
+    "chunks": [
+      "211f43c505e08b8a",
+      "eb13b6d8cf785438",
+      "fbdb94c827f883ef"
+    ],
+    "symbols": [
+      "applyMMR"
+    ]
+  },
+  "src/search/rerank.ts": {
+    "hash": "eb98b6b93475b967789862f6ed752a3a9c136810323ca89d262c23d351dcc073",
+    "size": 2773,
+    "lastModified": "2026-03-13T20:36:33.589Z",
+    "chunks": [
+      "521e325bbb5c09f5",
+      "5d2f4b5b2d163b22",
+      "06163a5e73896024"
+    ],
+    "symbols": [
+      "initReranker",
+      "rerankResults"
+    ]
+  },
+  "src/search/signature.ts": {
+    "hash": "6a32b584f911831da67f1b128d4665f72fbd5f207b98585361bb3c6c87477b17",
+    "size": 4851,
+    "lastModified": "2026-03-13T20:36:33.590Z",
+    "chunks": [
+      "cbf396663106c8a7",
+      "e5511ccc84d4aacc",
+      "6e430c4b9dfda1d9",
+      "bc6fd8e12581562e",
+      "70544d102bef4a69"
+    ],
+    "symbols": [
+      "extractSignature",
+      "DisplayTier",
+      "getDisplayTier",
+      "HIGH_CODE_LINES"
+    ]
+  },
+  "src/search/vector.ts": {
+    "hash": "12bfd3f5802a595e4454236cfd3f2c57c4e4a902a9b6f8d6892a062b62871943",
+    "size": 7486,
+    "lastModified": "2026-03-13T20:36:33.591Z",
+    "chunks": [
+      "fde2cd857dd57808",
+      "1bd479aa5ceb3742",
+      "ccd2882b456241fa",
+      "91d18dc950d348da",
+      "4e360a568f58dec1",
+      "c0664386b38edbfb"
+    ],
+    "symbols": [
+      "cosineSimilarity",
+      "cosineSimilarityBinary",
+      "vectorSearch",
+      "symbolLookup",
+      "keywordSearch"
+    ]
+  },
+  "src/storage/cache.ts": {
+    "hash": "26b255f4d676b1f5347ff7514cf984992950fe112a2ba254e9c18bbd0d167cbc",
+    "size": 5828,
+    "lastModified": "2026-03-13T20:36:33.585Z",
+    "chunks": [
+      "79b2f0cf54439389",
+      "5fb3bbe26589db99",
+      "dbba4ac56b5ff5d1",
+      "74bfead8e5caf0dd",
+      "180dedad1b55520c",
+      "b743deec1cf42ff4",
+      "8c13f54100a05721",
+      "3bce22ca5afaa1a2",
+      "db8bed015b1617c1",
+      "15dc0a8c9b591386"
+    ],
+    "symbols": [
+      "EmbeddingCacheStorage",
+      "EmbeddingCacheStorage.load",
+      "EmbeddingCacheStorage.save",
+      "EmbeddingCacheStorage.update",
+      "EmbeddingCacheStorage.prune",
+      "EmbeddingCacheStorage.getEmbeddingsMap",
+      "EmbeddingCacheStorage.getCacheDir"
+    ]
+  },
+  "src/storage/knowledge.ts": {
+    "hash": "ee23f8a5b833d9ce840e4b8e088ec1a5632253efe7507b56eda25ddaf6ea7f64",
+    "size": 1544,
+    "lastModified": "2026-03-13T20:36:33.586Z",
+    "chunks": [
+      "6d6e5166e6e3576f",
+      "9f3b36794d2dc256",
+      "268e880c6efa774e",
+      "4fe6b32bc15e02d8",
+      "fe40f9630180d7e3",
+      "2d80fafddfa69126",
+      "52b7259a43331b71",
+      "ea56fe8aba742e4c"
+    ],
+    "symbols": [
+      "KnowledgeStorage",
+      "KnowledgeStorage.load",
+      "KnowledgeStorage.save",
+      "KnowledgeStorage.add",
+      "KnowledgeStorage.remove",
+      "KnowledgeStorage.hasKnowledge",
+      "KnowledgeStorage.getKnowledgeDir"
+    ]
+  },
+  "src/storage/repository.ts": {
+    "hash": "3a53075cd081833d74db66c9fbfff7b8b544d4f87b60f2424522e18411032e32",
+    "size": 4667,
+    "lastModified": "2026-03-13T20:36:33.586Z",
+    "chunks": [
+      "0a93d3eaa1d2dd7f",
+      "35acfc84d55f5f84",
+      "1d631271918e0ea8",
+      "5bb1f85f0fadcee4",
+      "9a92126ec5a66762",
+      "e837b3c9123bd591",
+      "fc6e7bd9547f1089",
+      "6f181c09cacb5fd3",
+      "3d6beacba2fe8938",
+      "373fb145b889c49e",
+      "dce5716a273b8da2",
+      "92ce112bb2f3de29",
+      "437050f891ebea3a",
+      "c30817dd56319969",
+      "ed6b7ab9079b4ff3",
+      "4b20a187b9d0c036",
+      "cef71c571ba61b08",
+      "16a798c0118b76af",
+      "4f2485df03959003"
+    ],
+    "symbols": [
+      "RepositoryStorage",
+      "RepositoryStorage.loadFiles",
+      "RepositoryStorage.saveFiles",
+      "RepositoryStorage.loadChunks",
+      "RepositoryStorage.saveChunks",
+      "RepositoryStorage.loadSymbols",
+      "RepositoryStorage.saveSymbols",
+      "RepositoryStorage.loadDeps",
+      "RepositoryStorage.saveDeps",
+      "RepositoryStorage.loadCallGraph",
+      "RepositoryStorage.saveCallGraph",
+      "RepositoryStorage.loadTodos",
+      "RepositoryStorage.saveTodos",
+      "RepositoryStorage.loadMetadata",
+      "RepositoryStorage.saveMetadata",
+      "RepositoryStorage.readJson",
+      "RepositoryStorage.writeJson"
+    ]
+  },
+  "src/storage/session.ts": {
+    "hash": "6bfa5f0efc8ff5247899d61e534a3be2f3892f9813d32ec85aabfa033bc6a651",
+    "size": 3768,
+    "lastModified": "2026-03-13T20:36:33.586Z",
+    "chunks": [
+      "216bdeadecb2836a",
+      "cd9d4e30b3bc0f91",
+      "8c3d489d48b4298b",
+      "c70e4f184eb3c6c2",
+      "1dc8fc37be082ddc",
+      "c25ffb7139b086be",
+      "8e94ee25d1048dfb",
+      "d766cc5c40ca8a0a",
+      "44d0564326de3794",
+      "c31e29502bf8364e"
+    ],
+    "symbols": [
+      "SessionState",
+      "SessionStorage",
+      "SessionStorage.load",
+      "SessionStorage.loadOrCreate",
+      "SessionStorage.newSession",
+      "SessionStorage.saveState",
+      "SessionStorage.reset",
+      "SessionStorage.markSeen",
+      "SessionStorage.getSeenIds"
+    ]
+  },
+  "src/storage/summaries.ts": {
+    "hash": "2864c41e15fadc1fe3ea7ea7a3abe8d9d9efb826c5810cf346e56fb560a7e4b4",
+    "size": 2824,
+    "lastModified": "2026-03-13T20:36:33.585Z",
+    "chunks": [
+      "c6b193548339695b",
+      "60f00894f32fa938",
+      "b8bc63f8fcf360e9",
+      "6e15f0c9ad121416",
+      "002e4050ab62c87b",
+      "cff58e537769ace4",
+      "578536c192d1a322",
+      "2a60db1d334395b1",
+      "10ef3d92651f96b9",
+      "1f7a03f2f7557e60",
+      "62290d6eebacee62"
+    ],
+    "symbols": [
+      "SummaryStorage",
+      "SummaryStorage.loadFileSummaries",
+      "SummaryStorage.saveFileSummaries",
+      "SummaryStorage.loadProjectSummary",
+      "SummaryStorage.saveProjectSummary",
+      "SummaryStorage.hasFileSummaries",
+      "SummaryStorage.hasProjectSummary",
+      "SummaryStorage.getSummariesDir",
+      "SummaryStorage.readJson",
+      "SummaryStorage.writeJson"
+    ]
+  },
+  "src/storage/usage.ts": {
+    "hash": "978d1659a91dbdd6298859ac151c40e40953552bfd92433e14710afce71e8ffd",
+    "size": 2725,
+    "lastModified": "2026-03-13T20:36:33.585Z",
+    "chunks": [
+      "cad56b4efc72363e",
+      "0b6e6fab25961b08",
+      "70818a4b59920959",
+      "a67e9778d5b0e24b",
+      "9858c0711d2b7def",
+      "63b77442ce9fc8d1"
+    ],
+    "symbols": [
+      "UsageEvent",
+      "UsageStorage",
+      "UsageStorage.load",
+      "UsageStorage.append",
+      "UsageStorage.clear"
+    ]
+  },
+  "src/utils/git.ts": {
+    "hash": "1179ad6d6dcdbd4800eee2ecdc0592c9516e8db48c3f6772a2602e12d30dd5cb",
+    "size": 1168,
+    "lastModified": "2026-03-13T20:36:33.586Z",
+    "chunks": [
+      "4d0a89434cf737f7",
+      "7f0761d5be360752"
+    ],
+    "symbols": [
+      "GitCommit",
+      "getFileGitHistory"
+    ]
+  },
+  "src/utils/tokenizer.ts": {
+    "hash": "88c013fa7b39ae0e0cbb4b890196ffb59f9b473a1781db13d410549e61c18133",
+    "size": 1691,
+    "lastModified": "2026-03-13T20:36:33.587Z",
+    "chunks": [
+      "519b024a218e8dc9",
+      "b4ce3118efe9b2b7",
+      "0ac0141de8a9c24e",
+      "4d246fe3fd008ee3"
+    ],
+    "symbols": [
+      "sumResultTokens",
+      "countTokensHeuristic",
+      "formatTokenStats",
+      "applyTokenBudget"
+    ]
+  },
+  "tsconfig.json": {
+    "hash": "f152c42fdd464cbf9360929904be4cc76ff4f97332db21ae40e367387b1664b5",
+    "size": 519,
+    "lastModified": "2026-03-07T20:33:48.764Z",
+    "chunks": [
+      "75ccf896bf43d015"
+    ],
+    "symbols": []
+  }
+}

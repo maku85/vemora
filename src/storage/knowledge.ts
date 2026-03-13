@@ -4,7 +4,7 @@ import { AI_MEMORY_DIR, KNOWLEDGE_DIR, KNOWLEDGE_JSON } from "../core/config";
 import type { KnowledgeEntry } from "../core/types";
 
 /**
- * Reads and writes the knowledge store at .ai-memory/knowledge/entries.json.
+ * Reads and writes the knowledge store at .vemora/knowledge/entries.json.
  * Committed to git so the whole team shares the same knowledge base.
  */
 export class KnowledgeStorage {

@@ -69,7 +69,7 @@ export async function runReport(
   if (events.length === 0) {
     console.log(
       chalk.yellow("No usage data yet.") +
-        " Run some queries with `ai-memory query` or `ai-memory context`.",
+        " Run some queries with `vemora query` or `vemora context`.",
     );
     return;
   }
@@ -121,7 +121,7 @@ export async function runReport(
 
   // ── Header ────────────────────────────────────────────────────────────────
   console.log();
-  console.log(chalk.bold("ai-memory usage report"));
+  console.log(chalk.bold("vemora usage report"));
   if (options.days) {
     console.log(chalk.gray(`  Last ${options.days} days · ${total} queries`));
   } else {

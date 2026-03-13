@@ -1,4 +1,4 @@
-# ai-memory — Planned Features
+# vemora — Planned Features
 
 Features analyzed for implementation but deferred. Listed in ascending order of effort.
 

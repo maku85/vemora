@@ -50,7 +50,7 @@ export async function runAsk(
   if (!config.summarization) {
     console.error(
       chalk.red(
-        'No LLM configured. Add a "summarization" block to .ai-memory/config.json.\n\n' +
+        'No LLM configured. Add a "summarization" block to .vemora/config.json.\n\n' +
           "  Example for Ollama:\n" +
           '    "summarization": { "provider": "ollama", "model": "qwen2.5-coder:14b" }\n\n' +
           "  Example for OpenAI:\n" +
@@ -80,7 +80,7 @@ export async function runAsk(
   ).load();
 
   if (chunks.length === 0) {
-    console.error(chalk.red("No index found. Run `ai-memory index` first."));
+    console.error(chalk.red("No index found. Run `vemora index` first."));
     process.exit(1);
   }
 

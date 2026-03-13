@@ -23,7 +23,7 @@ export async function runKnowledgeList(
   if (entries.length === 0) {
     console.log(
       chalk.gray(
-        'No knowledge entries found. Use `ai-memory remember "<text>"` to add one.',
+        'No knowledge entries found. Use `vemora remember "<text>"` to add one.',
       ),
     );
     return;

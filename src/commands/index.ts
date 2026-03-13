@@ -326,7 +326,7 @@ async function startWatcher(
   const micromatch = require("micromatch");
 
   // Use a function so that chokidar filters against relative paths the same way
-  // the scanner does, preventing dist/ and .ai-memory/ writes from feedback-looping.
+  // the scanner does, preventing dist/ and .vemora/ writes from feedback-looping.
   const isIgnored = (absPath: string): boolean => {
     const rel = path.relative(rootDir, absPath);
     if (!rel || rel.startsWith("..")) return false;
@@ -476,7 +476,7 @@ async function generateEmbeddings(
 
     spinner.succeed(
       `Generated ${chalk.bold(Object.keys(newEmbeddings).length)} embeddings` +
-        ` (cached locally at ~/.ai-memory-cache/)`,
+        ` (cached locally at ~/.vemora-cache/)`,
     );
 
     return updated;

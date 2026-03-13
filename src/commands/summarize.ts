@@ -73,7 +73,7 @@ export async function runSummarize(
 
   if (!apiKey) {
     throw new Error(
-      "No API key found. Set OPENAI_API_KEY env var or add summarization.apiKey to .ai-memory/config.json",
+      "No API key found. Set OPENAI_API_KEY env var or add summarization.apiKey to .vemora/config.json",
     );
   }
 
@@ -171,7 +171,7 @@ export async function runSummarize(
       console.log(
         chalk.green(`✓ ${toSummarize.length - failed} file summaries saved`) +
           (failed > 0 ? chalk.red(` (${failed} failed)`) : "") +
-          chalk.gray("  →  .ai-memory/summaries/file-summaries.json"),
+          chalk.gray("  →  .vemora/summaries/file-summaries.json"),
       );
     }
 
@@ -197,7 +197,7 @@ export async function runSummarize(
   if (summaryEntries.length === 0) {
     console.log(
       chalk.yellow(
-        "No file summaries found. Run `ai-memory summarize` (without --project-only) first.",
+        "No file summaries found. Run `vemora summarize` (without --project-only) first.",
       ),
     );
     return;
@@ -240,7 +240,7 @@ export async function runSummarize(
     summaryStorage.saveProjectSummary(projectSummary);
     overviewSpinner.succeed(
       "Project overview saved" +
-        chalk.gray("  →  .ai-memory/summaries/project-summary.json"),
+        chalk.gray("  →  .vemora/summaries/project-summary.json"),
     );
 
     // Print a short preview
@@ -250,7 +250,7 @@ export async function runSummarize(
       console.log("  " + chalk.gray(line));
     }
     if (overview.split("\n").length > 5) {
-      console.log(chalk.gray("  … (use `ai-memory overview` to read in full)"));
+      console.log(chalk.gray("  … (use `vemora overview` to read in full)"));
     }
   } catch (err) {
     overviewSpinner.fail(`Project overview failed: ${(err as Error).message}`);

@@ -6,8 +6,8 @@ import type { AiMemoryConfig } from "./types";
 
 // ─── Path Constants ────────────────────────────────────────────────────────────
 
-export const AI_MEMORY_DIR = ".ai-memory";
-export const AI_MEMORY_CACHE_DIR = ".ai-memory-cache";
+export const AI_MEMORY_DIR = ".vemora";
+export const AI_MEMORY_CACHE_DIR = ".vemora-cache";
 export const CONFIG_FILE = "config.json";
 export const METADATA_FILE = "metadata.json";
 export const INDEX_DIR = "index";
@@ -42,7 +42,7 @@ export function getSummariesDir(rootDir: string): string {
  * Lives in the user's home directory — never in the repo.
  */
 export function getLocalCacheDir(projectId: string): string {
-  return path.join(os.homedir(), ".ai-memory-cache", projectId);
+  return path.join(os.homedir(), ".vemora-cache", projectId);
 }
 
 /**
@@ -109,7 +109,7 @@ export function getDefaultConfig(
       provider: "openai",
       model: "gpt-4o-mini",
     },
-    cacheDir: "~/.ai-memory-cache/<projectId>",
+    cacheDir: "~/.vemora-cache/<projectId>",
   };
 }
 
@@ -119,7 +119,7 @@ export function loadConfig(rootDir: string): AiMemoryConfig {
   const configPath = path.join(rootDir, AI_MEMORY_DIR, CONFIG_FILE);
   if (!fs.existsSync(configPath)) {
     throw new Error(
-      `No ${AI_MEMORY_DIR}/config.json found in ${rootDir}.\nRun 'ai-memory init' first.`,
+      `No ${AI_MEMORY_DIR}/config.json found in ${rootDir}.\nRun 'vemora init' first.`,
     );
   }
   const raw = fs.readFileSync(configPath, "utf-8");

@@ -1,4 +1,4 @@
-# ai-memory — Known Issues
+# vemora — Known Issues
 
 ---
 

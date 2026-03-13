@@ -8,7 +8,7 @@ export async function runOverview(rootDir: string): Promise<void> {
   if (!projectSummary) {
     console.log(
       chalk.yellow(
-        "No project overview found. Run `ai-memory summarize` first.",
+        "No project overview found. Run `vemora summarize` first.",
       ),
     );
     process.exit(1);

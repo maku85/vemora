@@ -1,5 +1,5 @@
 {
-  "name": "ai-memory",
+  "name": "vemora",
   "version": "0.1.0-alpha.0",
   "description": "Repository-local memory system for LLM-assisted development",
   "type": "commonjs",
@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/maku85/ai-memory.git"
+    "url": "https://github.com/maku85/vemora.git"
   },
   "keywords": [
     "llm",
@@ -19,9 +19,9 @@
     "typescript",
     "nodejs"
   ],
-  "homepage": "https://github.com/maku85/ai-memory",
+  "homepage": "https://github.com/maku85/vemora",
   "bugs": {
-    "url": "https://github.com/maku85/ai-memory/issues"
+    "url": "https://github.com/maku85/vemora/issues"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -31,7 +31,7 @@
     "README.md"
   ],
   "bin": {
-    "ai-memory": "./dist/cli.js"
+    "vemora": "./dist/cli.js"
   },
   "main": "./dist/cli.js",
   "scripts": {

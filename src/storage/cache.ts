@@ -9,8 +9,8 @@ const MAX_CACHE_BYTES = 512 * 1024 * 1024;
 /**
  * Manages the local per-developer embedding cache.
  *
- * Stored in ~/.ai-memory-cache/<projectId>/ — never in the repo.
- * Each developer builds their own cache after running `ai-memory index`.
+ * Stored in ~/.vemora-cache/<projectId>/ — never in the repo.
+ * Each developer builds their own cache after running `vemora index`.
  *
  * Design choice: dual-file storage per project.
  * Metadata and chunk IDs are stored in JSON (inspectable).
@@ -24,7 +24,7 @@ export class EmbeddingCacheStorage {
   private hnswPath: string; // embeddings.hnsw.json (serialized HNSW)
 
   constructor(projectId: string) {
-    this.cacheDir = path.join(os.homedir(), ".ai-memory-cache", projectId);
+    this.cacheDir = path.join(os.homedir(), ".vemora-cache", projectId);
     this.cachePath = path.join(this.cacheDir, "embeddings.json");
     this.binPath = path.join(this.cacheDir, "embeddings.bin");
     this.hnswPath = path.join(this.cacheDir, "embeddings.hnsw.json");

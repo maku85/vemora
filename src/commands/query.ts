@@ -96,11 +96,11 @@ export async function runQuery(
     if (fmt === "json") {
       console.log(
         JSON.stringify({
-          error: "No index found. Run `ai-memory index` first.",
+          error: "No index found. Run `vemora index` first.",
         }),
       );
     } else {
-      console.log(chalk.yellow("No index found. Run `ai-memory index` first."));
+      console.log(chalk.yellow("No index found. Run `vemora index` first."));
     }
     process.exit(1);
   }

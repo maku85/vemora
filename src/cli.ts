@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 
 /**
- * ai-memory CLI
+ * vemora CLI
  *
  * Repository-local memory system for LLM-assisted development.
  * Builds a structured, versioned index of a codebase and enables
  * semantic search over it using local or remote embedding providers.
  *
  * Usage:
- *   ai-memory init              Initialize .ai-memory/ in the current repo
- *   ai-memory index             Scan and index the repository (incremental)
- *   ai-memory query "<text>"    Find relevant code chunks
- *   ai-memory status            Show current index stats
+ *   vemora init              Initialize .vemora/ in the current repo
+ *   vemora index             Scan and index the repository (incremental)
+ *   vemora query "<text>"    Find relevant code chunks
+ *   vemora status            Show current index stats
  */
 
 import chalk from "chalk";
@@ -37,7 +37,7 @@ import { runSummarize } from "./commands/summarize";
 const program = new Command();
 
 program
-  .name("ai-memory")
+  .name("vemora")
   .description("Repository-local memory system for LLM-assisted development")
   .version("0.1.0");
 
@@ -45,7 +45,7 @@ program
 
 program
   .command("init")
-  .description("Initialize ai-memory in the current repository")
+  .description("Initialize vemora in the current repository")
   .option("--root <dir>", "project root directory (default: cwd)", "")
   .action(async (opts: { root: string }) => {
     const rootDir = path.resolve(opts.root || process.cwd());
@@ -92,7 +92,7 @@ program
 
 program
   .command("query <question>")
-  .description("Search the memory index for relevant code")
+  .description("Search the vemora index for relevant code")
   .option("--root <dir>", "project root directory (default: cwd)", "")
   .option("-k, --top-k <n>", "number of results to return", "10")
   .option("-c, --show-code", "print code snippets in results", false)
@@ -200,7 +200,7 @@ program
 
 program
   .command("status")
-  .description("Show indexing status and configuration")
+  .description("Show current index stats")
   .option("--root <dir>", "project root directory (default: cwd)", "")
   .action(async (opts: { root: string }) => {
     const rootDir = path.resolve(opts.root || process.cwd());
@@ -478,7 +478,7 @@ program
 
 program
   .command("overview")
-  .description("Print the project overview (from ai-memory summarize)")
+  .description("Print the project overview (from vemora summarize)")
   .option("--root <dir>", "project root directory (default: cwd)", "")
   .action(async (opts: { root: string }) => {
     const rootDir = path.resolve(opts.root || process.cwd());
@@ -523,7 +523,7 @@ program
 program
   .command("init-claude")
   .description(
-    "Generate a CLAUDE.md file for Claude Code from the ai-memory index",
+    "Generate a CLAUDE.md file for Claude Code from the vemora index",
   )
   .option("--root <dir>", "project root directory (default: cwd)", "")
   .option("--force", "overwrite existing CLAUDE.md", false)
@@ -542,13 +542,13 @@ program
 program
   .command("init-agent")
   .description(
-    "Generate AI agent instruction files (CLAUDE.md, GEMINI.md, .github/copilot-instructions.md, .cursor/rules/ai-memory.mdc, .windsurfrules)",
+    "Generate AI agent instruction files (CLAUDE.md, GEMINI.md, .github/copilot-instructions.md, .cursor/rules/vemora.mdc, .windsurfrules)",
   )
   .option(
     "--agent <agent>",
     "Which agent to target: claude, gemini, copilot, cursor, windsurf (default: all)",
   )
-  .option("--force", "Overwrite existing files that have no ai-memory markers")
+  .option("--force", "Overwrite existing files that have no vemora markers")
   .option("--root <dir>", "Project root directory", process.cwd())
   .action(async (opts: { agent?: string; force?: boolean; root: string }) => {
     const ALL_AGENTS = ["claude", "copilot", "cursor", "windsurf", "gemini"] as const;

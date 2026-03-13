@@ -15,7 +15,7 @@ import {
 import type { Metadata } from "../core/types";
 
 export async function runInit(rootDir: string): Promise<void> {
-  console.log(chalk.bold("Initializing ai-memory..."));
+  console.log(chalk.bold("Initializing vemora..."));
   console.log(`Project root: ${chalk.cyan(rootDir)}`);
   console.log();
 
@@ -38,12 +38,12 @@ export async function runInit(rootDir: string): Promise<void> {
     const config = getDefaultConfig(rootDir, projectName);
     saveConfig(config);
     console.log(
-      chalk.green("✓") + ` Created ${chalk.gray(".ai-memory/config.json")}`,
+      chalk.green("✓") + ` Created ${chalk.gray(".vemora/config.json")}`,
     );
   } else {
     console.log(
       chalk.yellow("~") +
-        ` ${chalk.gray(".ai-memory/config.json")} already exists, skipping`,
+        ` ${chalk.gray(".vemora/config.json")} already exists, skipping`,
     );
   }
 
@@ -64,7 +64,7 @@ export async function runInit(rootDir: string): Promise<void> {
     };
     fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
     console.log(
-      chalk.green("✓") + ` Created ${chalk.gray(".ai-memory/metadata.json")}`,
+      chalk.green("✓") + ` Created ${chalk.gray(".vemora/metadata.json")}`,
     );
   }
 
@@ -82,7 +82,7 @@ export async function runInit(rootDir: string): Promise<void> {
   }
   console.log(
     chalk.green("✓") +
-      ` Created ${chalk.gray(".ai-memory/index/{files,chunks,symbols,callgraph}.json")}`,
+      ` Created ${chalk.gray(".vemora/index/{files,chunks,symbols,callgraph}.json")}`,
   );
 
   // ── 5. .gitignore ─────────────────────────────────────────────────────────
@@ -94,18 +94,18 @@ export async function runInit(rootDir: string): Promise<void> {
   console.log();
   console.log("Next steps:");
   console.log(
-    `  1. Review ${chalk.cyan(".ai-memory/config.json")} — adjust include/exclude patterns`,
+    `  1. Review ${chalk.cyan(".vemora/config.json")} — adjust include/exclude patterns`,
   );
   console.log(
     `  2. Configure embedding provider (default: OpenAI via ${chalk.cyan("OPENAI_API_KEY")} env)`,
   );
-  console.log(`  3. Run ${chalk.cyan("ai-memory index")} to build the index`);
+  console.log(`  3. Run ${chalk.cyan("vemora index")} to build the index`);
   console.log(
-    `  4. Run ${chalk.cyan('ai-memory query "your question"')} to search`,
+    `  4. Run ${chalk.cyan('vemora query "your question"')} to search`,
   );
   console.log();
   console.log(
-    chalk.gray(`Note: .ai-memory-cache/ is local-only and excluded from git.`),
+    chalk.gray(`Note: .vemora-cache/ is local-only and excluded from git.`),
   );
 }
 
@@ -138,7 +138,7 @@ async function ensureGitignore(rootDir: string): Promise<void> {
   if (!fs.existsSync(gitignorePath)) {
     fs.writeFileSync(
       gitignorePath,
-      `# ai-memory local embedding cache\n${entry}\n`,
+      `# vemora local embedding cache\n${entry}\n`,
       "utf-8",
     );
     console.log(
@@ -159,7 +159,7 @@ async function ensureGitignore(rootDir: string): Promise<void> {
 
   fs.appendFileSync(
     gitignorePath,
-    `\n# ai-memory local embedding cache\n${entry}\n`,
+    `\n# vemora local embedding cache\n${entry}\n`,
     "utf-8",
   );
   console.log(

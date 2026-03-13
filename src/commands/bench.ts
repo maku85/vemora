@@ -45,7 +45,7 @@ export async function runBench(
   const projectSummary = summaryStorage.loadProjectSummary();
 
   if (chunks.length === 0) {
-    console.error(chalk.red("No index found. Run `ai-memory index` first."));
+    console.error(chalk.red("No index found. Run `vemora index` first."));
     process.exit(1);
   }
 

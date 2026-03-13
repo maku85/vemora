@@ -28,7 +28,7 @@ const SESSION_FILE = "session.json";
  * subsequent queries can skip already-seen chunks. Sessions auto-expire after
  * 30 minutes of idle time.
  *
- * Stored in ~/.ai-memory-cache/<projectId>/session.json — never in the repo.
+ * Stored in ~/.vemora-cache/<projectId>/session.json — never in the repo.
  */
 export class SessionStorage {
   private filePath: string;

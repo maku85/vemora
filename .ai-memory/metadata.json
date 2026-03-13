@@ -1,0 +1,12 @@
+{
+  "projectId": "c9bd8940ca7727d3",
+  "projectName": "vemora",
+  "lastIndexed": "2026-03-13T20:41:10.342Z",
+  "indexedFiles": 70,
+  "totalChunks": 400,
+  "totalSymbols": 263,
+  "totalDepEdges": 0,
+  "totalCallEdges": 2000,
+  "embeddingProvider": "openai",
+  "embeddingModel": "text-embedding-3-small"
+}

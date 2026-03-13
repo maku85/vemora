@@ -1,6 +1,6 @@
-# ai-memory — Codebase Reference
+# vemora — Codebase Reference
 
-Complete file-by-file breakdown of the `ai-memory/` package. This document is optimized for LLM consumption: an agent reading it should be able to resume work on any part of the codebase without first scanning all the source files.
+Complete file-by-file breakdown of the `vemora/` package. This document is optimized for LLM consumption: an agent reading it should be able to resume work on any part of the codebase without first scanning all the source files.
 
 ---
 
@@ -8,7 +8,7 @@ Complete file-by-file breakdown of the `ai-memory/` package. This document is op
 
 | File | Purpose |
 |---|---|
-| `package.json` | npm manifest. `bin.ai-memory` → `./dist/cli.js`. Key deps: commander, fast-glob, chalk, ora, openai. tree-sitter in `optionalDependencies`. |
+| `package.json` | npm manifest. `bin.vemora` → `./dist/cli.js`. Key deps: commander, fast-glob, chalk, ora, openai. tree-sitter in `optionalDependencies`. |
 | `tsconfig.json` | TypeScript config. `module: commonjs`, `target: ES2022`, `strict: true`, `esModuleInterop: true`. Out: `./dist/`. |
 | `.gitignore` | Ignores `node_modules/`, `dist/`, map files. |
 | `README.md` | User-facing documentation. |
@@ -51,7 +51,7 @@ Single source of truth for the data model. No runtime code.
 
 ### Key interfaces
 
-**`AiMemoryConfig`** — loaded from `.ai-memory/config.json`
+**`AiMemoryConfig`** — loaded from `.vemora/config.json`
 - `projectId`: deterministic hash of rootDir path
 - `rootDir`: injected at load time, NOT persisted (so the project can be moved)
 - `include`/`exclude`: fast-glob patterns
@@ -81,13 +81,13 @@ Single source of truth for the data model. No runtime code.
 **`CallGraph`** (`callgraph.json`) — `{ [symbolId]: CallGraphEntry }`
 - `CallGraphEntry`: `calls: { name, file }[]`, `calledBy: string[]`
 
-**`EmbeddingCache`** (`~/.ai-memory-cache/<id>/`)
+**`EmbeddingCache`** (`~/.vemora-cache/<id>/`)
 - `embeddings`: `{ [chunkId]: number[] }` (Legacy JSON format)
 - `vectors`: `Float32Array` (Runtime only, contiguous buffer)
 - `chunkIds`: `string[]` (Ordered list of IDs matching the vectors buffer)
 - `hnswIndex`: `any` (Serialised HNSW graph for fast retrieval)
 
-**`KnowledgeEntry`** (`.ai-memory/knowledge/entries.json`)
+**`KnowledgeEntry`** (`.vemora/knowledge/entries.json`)
 - `id`: UUID v4
 - `category`: `'decision' | 'pattern' | 'gotcha' | 'glossary'`
 - `title`: short label shown in context headers
@@ -109,8 +109,8 @@ Single source of truth for the data model. No runtime code.
 ### Constants
 
 ```typescript
-AI_MEMORY_DIR = '.ai-memory'
-AI_MEMORY_CACHE_DIR = '.ai-memory-cache'
+AI_MEMORY_DIR = '.vemora'
+AI_MEMORY_CACHE_DIR = '.vemora-cache'
 CONFIG_FILE = 'config.json'
 METADATA_FILE = 'metadata.json'
 INDEX_DIR = 'index'
@@ -132,13 +132,13 @@ KNOWLEDGE_JSON = 'entries.json'
 - `getDefaultConfig(rootDir, projectName)` — returns a config with sensible defaults. Include patterns cover TS, JS, Python, Rust, Go, CSS, JSON, YAML, Markdown. Exclude patterns use `**/` prefix to catch nested directories (critical for monorepos). Default `summarization.model` is `gpt-4o-mini`.
 - `loadConfig(rootDir)` — reads `config.json`, injects `rootDir`. Throws if not found.
 - `saveConfig(config)` — strips `rootDir` before writing (it's runtime-only).
-- `getSummariesDir(rootDir)` — returns `.ai-memory/summaries/` path.
+- `getSummariesDir(rootDir)` — returns `.vemora/summaries/` path.
 
 ---
 
 ## `src/storage/repository.ts` — Repository index I/O
 
-`RepositoryStorage` class. All files are in `.ai-memory/index/` (or `.ai-memory/` for metadata).
+`RepositoryStorage` class. All files are in `.vemora/index/` (or `.vemora/` for metadata).
 
 Methods: `loadFiles/saveFiles`, `loadChunks/saveChunks`, `loadSymbols/saveSymbols`, `loadDeps/saveDeps`, `loadCallGraph/saveCallGraph`, `loadMetadata/saveMetadata`.
 
@@ -150,7 +150,7 @@ Private helpers:
 
 ## `src/storage/cache.ts` — Embedding cache I/O
 
-`EmbeddingCacheStorage` class. Cache lives at `~/.ai-memory-cache/<projectId>/`.
+`EmbeddingCacheStorage` class. Cache lives at `~/.vemora-cache/<projectId>/`.
 
 Uses a dual-file approach for performance:
 - `embeddings.json`: Metadata (model, dimensions) and ordered `chunkIds`.
@@ -168,7 +168,7 @@ Methods:
 
 ## `src/storage/knowledge.ts` — Knowledge store I/O
 
-`KnowledgeStorage` class. Entries live at `.ai-memory/knowledge/entries.json` (versioned in git).
+`KnowledgeStorage` class. Entries live at `.vemora/knowledge/entries.json` (versioned in git).
 
 Methods:
 - `load()` — returns `KnowledgeEntry[]` (empty `[]` if file missing or parse error)
@@ -182,7 +182,7 @@ Methods:
 
 ## `src/storage/summaries.ts` — Summary I/O
 
-`SummaryStorage` class. Files live in `.ai-memory/summaries/` (versioned in git).
+`SummaryStorage` class. Files live in `.vemora/summaries/` (versioned in git).
 
 Methods:
 - `loadFileSummaries()` — returns `FileSummaryIndex` (empty `{}` if not yet generated)
@@ -486,7 +486,7 @@ Implementation for Anthropic's Messages API. Supports streaming and requires `AN
 
 Implementation for local Ollama chat API. Support streaming and uses a local `baseUrl`.
 
-## `src/commands/ask.ts` — `ai-memory ask`
+## `src/commands/ask.ts` — `vemora ask`
 
 `runAsk(rootDir, question, options)` — one-shot Q&A: retrieves relevant context from the index and calls the configured LLM to answer the question directly. No interactive loop.
 
@@ -503,7 +503,7 @@ Requires `config.summarization` to be set; prints a clear error with example con
 
 ---
 
-## `src/commands/chat.ts` — `ai-memory chat`
+## `src/commands/chat.ts` — `vemora chat`
 
 Implementazione del middleware interattivo. 
 
@@ -518,7 +518,7 @@ Implementazione del middleware interattivo.
 
 ---
 
-## `src/commands/init-agent.ts` — `ai-memory init-agent`
+## `src/commands/init-agent.ts` — `vemora init-agent`
 
 `runInitAgent(rootDir, { agents?, force? })` — generates AI agent instruction files from the existing index. No API calls made.
 
@@ -528,20 +528,20 @@ Supported agents and output paths:
 |---|---|
 | `claude` | `CLAUDE.md` |
 | `copilot` | `.github/copilot-instructions.md` |
-| `cursor` | `.cursor/rules/ai-memory.mdc` (with YAML frontmatter `alwaysApply: true`) |
+| `cursor` | `.cursor/rules/vemora.mdc` (with YAML frontmatter `alwaysApply: true`) |
 | `windsurf` | `.windsurfrules` |
 
 Default (no `agents` specified) = all four.
 
 Each file shares:
 - `DEFAULT_INSTRUCTIONS` — two-layer static preamble: (1) five abstract guidelines for large cloud models, (2) a `## Quick reference` table with explicit IF/THEN rules for small/local models. Both layers benefit all model sizes; large models use the table as a cheat sheet, small models follow it literally.
-- The generated block: Project Overview, Commands, Entry Points, Key Exports, ai-memory usage examples including `remember` and `knowledge list`.
+- The generated block: Project Overview, Commands, Entry Points, Key Exports, vemora usage examples including `remember` and `knowledge list`.
 
 Differences between agents are in the wrapper only: Claude gets `# projectName` header, Cursor gets YAML frontmatter `alwaysApply: true`.
 
 Merge behavior (same for all agents):
 - File doesn't exist → create from scratch
-- File has `<!-- ai-memory:generated:start/end -->` markers → replace only the block between them, preserve custom content outside
+- File has `<!-- vemora:generated:start/end -->` markers → replace only the block between them, preserve custom content outside
 - File exists without markers + `--force` → full overwrite
 - File exists without markers + no `--force` → print yellow warning with marker instructions, skip
 
@@ -549,20 +549,20 @@ Contains `buildGeneratedBlock` and `detectNpmScripts` (shared utilities).
 
 ---
 
-## `src/commands/init-claude.ts` — `ai-memory init-claude`
+## `src/commands/init-claude.ts` — `vemora init-claude`
 
 Thin wrapper: delegates to `runInitAgent(rootDir, { agents: ["claude"], force })`. Kept for backward compatibility.
 
 ---
 
-## `src/commands/init.ts` — `ai-memory init`
+## `src/commands/init.ts` — `vemora init`
 
 `runInit(rootDir)`:
-1. `mkdir -p .ai-memory/index/`
+1. `mkdir -p .vemora/index/`
 2. Write `config.json` (skip if exists)
 3. Write `metadata.json` (skip if exists)
 4. Write empty `files.json`, `chunks.json`, `symbols.json` (skip if exist)
-5. Ensure `.ai-memory-cache/` is in `.gitignore`
+5. Ensure `.vemora-cache/` is in `.gitignore`
 
 `detectProjectName(rootDir)` — reads `package.json` name, falls back to `pyproject.toml` name, then `path.basename(rootDir)`.
 
@@ -570,7 +570,7 @@ Thin wrapper: delegates to `runInitAgent(rootDir, { agents: ["claude"], force })
 
 ---
 
-## `src/commands/index.ts` — `ai-memory index`
+## `src/commands/index.ts` — `vemora index`
 
 Orchestrates the indexing process. Refactored to support iterative and watched indexing.
 
@@ -589,7 +589,7 @@ The core logic of a single indexing pass.
 
 ### `startWatcher(...)`
 Initializes `chokidar` to monitor the project root.
-- **Ignored**: `node_modules`, `.git`, `.ai-memory`.
+- **Ignored**: `node_modules`, `.git`, `.vemora`.
 - **Logic**: Collects changes (`add`, `change`, `unlink`) into pending sets.
 - **Debounce**: Triggers `triggerIndex` after 500ms of inactivity.
 - **triggerIndex**: Calls `performIndexIteration` with the specific changed/deleted paths for rapid partial updates.
@@ -610,7 +610,7 @@ Calculates final stats and updates `lastIndexed` timestamp.
 
 ---
 
-## `src/commands/query.ts` — `ai-memory query`
+## `src/commands/query.ts` — `vemora query`
 
 `runQuery(rootDir, question, options)` — supports `QueryOptions`:
 
@@ -633,7 +633,7 @@ Pipeline order: search → rerank → MMR → **merge** → budget → output.
 
 LOW tier results show `◦ <file summary>` if a summary exists for that file.
 
-## `src/commands/summarize.ts` — `ai-memory summarize`
+## `src/commands/summarize.ts` — `vemora summarize`
 
 `runSummarize(rootDir, { force?, model?, filesOnly?, projectOnly? })`:
 
@@ -651,7 +651,7 @@ Models: default `gpt-4o-mini` (from `config.summarization.model`). API key from 
 
 ---
 
-## `src/commands/context.ts` — `ai-memory context`
+## `src/commands/context.ts` — `vemora context`
 
 `runContext(rootDir, options)` — accepts the same search/pipeline flags as `query` (`--hybrid`, `--rerank`, `--mmr`, `--merge`, `--merge-gap`, `--budget`, etc.) plus:
 
@@ -671,11 +671,11 @@ Generates a single Markdown (or plain text) context block meant to be pasted int
 
 Path resolution: `resolveRelPath(rootDir, filePath)` tries candidates in order: (1) path as-is relative to `rootDir`, (2) path resolved from `cwd`.
 
-Output is written to `stdout`, designed to be piped: `ai-memory context --query "X" > context.md`
+Output is written to `stdout`, designed to be piped: `vemora context --query "X" > context.md`
 
 ---
 
-## `src/commands/bench.ts` — `ai-memory bench`
+## `src/commands/bench.ts` — `vemora bench`
 
 ### `runBench(rootDir, query, options)`
 1. Performs a search for the query (keyword or vector).
@@ -687,20 +687,20 @@ Output is written to `stdout`, designed to be piped: `ai-memory context --query 
 
 ---
 
-## `src/commands/status.ts` — `ai-memory status`
+## `src/commands/status.ts` — `vemora status`
 
 `runStatus(rootDir)`:
 - Loads config, index metadata, and local embedding cache.
 - Prints project summary (Files, Chunks, Symbols, Provider) and local cache (Vectors, Model, Location).
 - If file summaries exist: shows count and whether the project overview has been generated.
-- If `.ai-memory/knowledge/entries.json` exists: shows entry count and runs **staleness detection** — for each entry with `relatedFiles`, checks if any listed file has `lastModified > entry.createdAt`. Prints a yellow `⚠` warning per stale entry.
+- If `.vemora/knowledge/entries.json` exists: shows entry count and runs **staleness detection** — for each entry with `relatedFiles`, checks if any listed file has `lastModified > entry.createdAt`. Prints a yellow `⚠` warning per stale entry.
 
 ---
 
-## `src/commands/overview.ts` — `ai-memory overview`
+## `src/commands/overview.ts` — `vemora overview`
 
 `runOverview(rootDir)`:
-- Carica il summary del progetto da `.ai-memory/summaries/project-summary.json`.
+- Carica il summary del progetto da `.vemora/summaries/project-summary.json`.
 - Stampa la panoramica generale del repository generata da `summarize`.
 
 ---
@@ -746,7 +746,7 @@ Returns a Markdown string with:
 
 ---
 
-## `src/commands/remember.ts` — `ai-memory remember`
+## `src/commands/remember.ts` — `vemora remember`
 
 `runRemember(rootDir, body, options)` — adds a knowledge entry to the store.
 
@@ -763,7 +763,7 @@ Default values: `category = 'pattern'`, `confidence = 'medium'`, `createdBy = 'h
 
 ---
 
-## `src/commands/knowledge.ts` — `ai-memory knowledge`
+## `src/commands/knowledge.ts` — `vemora knowledge`
 
 ### `runKnowledgeList(rootDir, options)`
 
@@ -782,7 +782,7 @@ Removes an entry by full UUID or 8-char prefix. Prints an error and exits with c
 
 ---
 
-## `src/commands/deps.ts` — `ai-memory deps`
+## `src/commands/deps.ts` — `vemora deps`
 
 `runDeps(rootDir, targetFile, { depth? })`:
 

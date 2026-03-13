@@ -9,7 +9,7 @@ import {
 import type { FileSummaryIndex, ProjectSummary } from "../core/types";
 
 /**
- * Reads and writes LLM-generated summary files stored in .ai-memory/summaries/.
+ * Reads and writes LLM-generated summary files stored in .vemora/summaries/.
  * These files are committed to git so the whole team shares the same summaries.
  */
 export class SummaryStorage {

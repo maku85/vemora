@@ -17,7 +17,7 @@ export async function runStatus(rootDir: string): Promise<void> {
   const row = (label: string, value: string) =>
     console.log(`  ${chalk.gray(label.padEnd(16))} ${value}`);
 
-  console.log(chalk.bold("ai-memory status"));
+  console.log(chalk.bold("vemora status"));
   console.log();
   row("Project:", config.projectName);
   row("Project ID:", config.projectId);
@@ -47,7 +47,7 @@ export async function runStatus(rootDir: string): Promise<void> {
       "Project overview:",
       hasOverview
         ? chalk.green("yes")
-        : chalk.gray("no  (run ai-memory summarize)"),
+        : chalk.gray("no  (run vemora summarize)"),
     );
   }
 
@@ -86,7 +86,7 @@ export async function runStatus(rootDir: string): Promise<void> {
         );
         console.log(
           chalk.gray(
-            `     Created: ${e.createdAt.slice(0, 10)} · Run \`ai-memory knowledge list\` to review`,
+            `     Created: ${e.createdAt.slice(0, 10)} · Run \`vemora knowledge list\` to review`,
           ),
         );
       }
@@ -129,7 +129,7 @@ export async function runStatus(rootDir: string): Promise<void> {
     : Object.keys(cache?.embeddings ?? {}).length;
   if (!cache || cachedCount === 0) {
     console.log(
-      `  ${chalk.gray("No cache found.")} Run ${chalk.cyan("ai-memory index")} to generate embeddings.`,
+      `  ${chalk.gray("No cache found.")} Run ${chalk.cyan("vemora index")} to generate embeddings.`,
     );
   } else {
     row("Cached vectors:", String(cachedCount));

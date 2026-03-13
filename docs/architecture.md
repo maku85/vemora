@@ -1,12 +1,12 @@
-# ai-memory — Architecture
+# vemora — Architecture
 
-This document describes the system design, data flows, and key decisions behind `ai-memory`. It is intended for developers and LLM agents resuming work on the tool.
+This document describes the system design, data flows, and key decisions behind `vemora`. It is intended for developers and LLM agents resuming work on the tool.
 
 ---
 
 ## Overview
 
-`ai-memory` is a local RAG (Retrieval-Augmented Generation) system for code repositories. It pre-indexes a codebase into a structured format and enables semantic search over it, so that LLM tools receive only the relevant context rather than entire files.
+`vemora` is a local RAG (Retrieval-Augmented Generation) system for code repositories. It pre-indexes a codebase into a structured format and enables semantic search over it, so that LLM tools receive only the relevant context rather than entire files.
 
 The system solves a specific tension: **more context = better LLM understanding, but more tokens = higher cost and degraded focus**. The answer is precision retrieval.
 
@@ -18,7 +18,7 @@ The system solves a specific tension: **more context = better LLM understanding,
 ┌─────────────────────────────────────────────────────┐
 │  Layer 1: Repository Memory (git-versioned)          │
 │                                                      │
-│  .ai-memory/                                         │
+│  .vemora/                                         │
 │    config.json          project settings             │
 │    metadata.json        index stats                  │
 │    index/                                            │
@@ -38,7 +38,7 @@ The system solves a specific tension: **more context = better LLM understanding,
 ┌─────────────────────────────────────────────────────┐
 │  Layer 2: Local Embedding Cache (NOT in git)         │
 │                                                      │
-│  ~/.ai-memory-cache/<projectId>/                     │
+│  ~/.vemora-cache/<projectId>/                     │
 │    embeddings.json      { chunkId: number[] }        │
 │    embeddings.bin       Float32Array vectors         │
 │    embeddings.hnsw.json HNSW search index            │
@@ -47,8 +47,8 @@ The system solves a specific tension: **more context = better LLM understanding,
 ┌─────────────────────────────────────────────────────┐
 │  Layer 3: CLI Tool                                   │
 │                                                      │
-│  ai-memory init | index | query | context | deps | status │
-│  ai-memory remember | knowledge list/forget | summarize   │
+│  vemora init | index | query | context | deps | status │
+│  vemora remember | knowledge list/forget | summarize   │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -56,7 +56,7 @@ Layer 1 is committed to git so the whole team shares the same index without each
 
 ---
 
-## Data flow: `ai-memory index`
+## Data flow: `vemora index`
 
 ```
 Filesystem
@@ -93,21 +93,21 @@ Filesystem
 [Graphs]   incremental merge with previous state
     │
     ▼ saveFiles() + saveChunks() + saveSymbols() + saveDeps() + saveCallGraph() + saveTodos()
-[.ai-memory/index/]
+[.vemora/index/]
     │
     ▼ EmbeddingProvider.embed()   batched, only new chunks
 [number[][]]   one vector per chunk
     │
     ▼ EmbeddingCacheStorage.update() + prune()
-[~/.ai-memory-cache/<id>/embeddings.bin]
+[~/.vemora-cache/<id>/embeddings.bin]
     │
     ▼ rebuildHNSWIndex()
-[~/.ai-memory-cache/<id>/embeddings.hnsw.json]
+[~/.vemora-cache/<id>/embeddings.hnsw.json]
 ```
 
 ---
 
-## Data flow: `ai-memory query`
+## Data flow: `vemora query`
 
 ```
 User query string
@@ -150,12 +150,12 @@ User query string
 
 ---
 
-## Data flow: `ai-memory remember` / knowledge store
+## Data flow: `vemora remember` / knowledge store
 
 The knowledge store is a human- and LLM-writable layer that captures information the structural index cannot: architectural decisions, approved patterns, recurring gotchas, domain glossary.
 
 ```
-ai-memory remember "<text>" [--category gotcha|pattern|decision|glossary]
+vemora remember "<text>" [--category gotcha|pattern|decision|glossary]
                              [--title "…"] [--files src/…] [--symbols …]
     │
     ▼ Validation (min 20 chars)
@@ -165,10 +165,10 @@ ai-memory remember "<text>" [--category gotcha|pattern|decision|glossary]
         warn if any existing entry has > 60% term overlap
     │
     ▼ KnowledgeStorage.add(entry)
-[.ai-memory/knowledge/entries.json]   committed to git, shared with team
+[.vemora/knowledge/entries.json]   committed to git, shared with team
 ```
 
-### Integration into `ai-memory context`
+### Integration into `vemora context`
 
 When `context` runs (flat or `--structured`), a `## Knowledge` section is prepended:
 
@@ -186,7 +186,7 @@ rankKnowledgeEntries(query, searchResults, entries, maxEntries=5)
 
 Entries that score only on category weight (no query/file/symbol match) are filtered out to avoid noise.
 
-### Staleness detection in `ai-memory status`
+### Staleness detection in `vemora status`
 
 ```
 For each knowledge entry with relatedFiles:
@@ -197,11 +197,11 @@ For each knowledge entry with relatedFiles:
     → print ⚠ warning with entry title and creation date
 ```
 
-New entries created by `ai-memory remember --files ...` store a SHA-256 hash snapshot of each related file at creation time (`relatedFileHashes` field in `KnowledgeEntry`). Staleness is then detected by hash comparison, not timestamp, so a `touch` or editor save without content changes no longer triggers a false-positive warning.
+New entries created by `vemora remember --files ...` store a SHA-256 hash snapshot of each related file at creation time (`relatedFileHashes` field in `KnowledgeEntry`). Staleness is then detected by hash comparison, not timestamp, so a `touch` or editor save without content changes no longer triggers a false-positive warning.
 
 ---
 
-## Git history context (`ai-memory context --file`)
+## Git history context (`vemora context --file`)
 
 When `--file` is used, `context` calls `getFileGitHistory(rootDir, relPath)` on-demand via `git log --follow`. This is not stored in the index — git is the authoritative source. The last 5 commits that touched the file are appended to the file context block, giving the LLM "why was this changed" information without requiring any additional indexing.
 
@@ -218,17 +218,17 @@ getFileGitHistory(rootDir, relPath, maxCommits=5)
 
 ## TODO/FIXME annotation index
 
-`extractTodos()` scans each changed file during `ai-memory index` for `TODO`, `FIXME`, `HACK`, and `XXX` markers (case-insensitive). Results are stored in `.ai-memory/index/todos.json` (versioned in git, shared with the team).
+`extractTodos()` scans each changed file during `vemora index` for `TODO`, `FIXME`, `HACK`, and `XXX` markers (case-insensitive). Results are stored in `.vemora/index/todos.json` (versioned in git, shared with the team).
 
 **Incremental:** unchanged files carry their existing annotations forward; only changed files are re-scanned.
 
 **Exposed in two places:**
-- `ai-memory context --file <path>`: TODOs in that file are shown in the context block
-- `ai-memory status`: total count and per-type breakdown
+- `vemora context --file <path>`: TODOs in that file are shown in the context block
+- `vemora status`: total count and per-type breakdown
 
 ---
 
-## Test file linkage (`ai-memory context --file`)
+## Test file linkage (`vemora context --file`)
 
 When `--file` is used, `context` discovers test files related to the source file using `findTestFiles()`. No separate index is needed — results are derived at query time from the existing chunk corpus.
 
@@ -254,7 +254,7 @@ This is a **pure derivation** — no test linkage data is stored in the index. T
 
 ---
 
-## Caller context (`ai-memory context --file`)
+## Caller context (`vemora context --file`)
 
 After test linkage, the file context block shows which symbols in the file are called by other symbols, grouped by exporting symbol. This is derived from the existing `callgraph.json` index.
 
@@ -466,7 +466,7 @@ Edge case: if a file is renamed (deleted + new path), files that imported the ol
 
 ## Git strategy
 
-Files in `.ai-memory/index/` are plain JSON, intentionally human-readable and diff-friendly:
+Files in `.vemora/index/` are plain JSON, intentionally human-readable and diff-friendly:
 
 - `files.json` — compact object, diffs show added/removed/changed files
 - `chunks.json` — array, diffs show added/removed chunks

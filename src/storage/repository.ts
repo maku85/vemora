@@ -22,7 +22,7 @@ import type {
 } from "../core/types";
 
 /**
- * Reads and writes the versioned repository memory files stored in .ai-memory/.
+ * Reads and writes the versioned repository memory files stored in .vemora/.
  * All files here are committed to git so collaborators share the same index.
  */
 export class RepositoryStorage {

@@ -38,7 +38,7 @@ const MAX_EVENTS = 2000;
  * Append-only log of usage events stored in the local developer cache.
  * Never committed to git — per-developer analytics only.
  *
- * Stored in ~/.ai-memory-cache/<projectId>/usage.log.json
+ * Stored in ~/.vemora-cache/<projectId>/usage.log.json
  */
 export class UsageStorage {
   private filePath: string;

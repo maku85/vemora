@@ -417,7 +417,7 @@ export function detectCycles(graph: DependencyGraph): string[][] {
 }
 
 /**
- * Stats about the dependency graph for display in `ai-memory status`.
+ * Stats about the dependency graph for display in `vemora status`.
  */
 export function graphStats(graph: DependencyGraph): {
   totalFiles: number;

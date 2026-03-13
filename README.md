@@ -1,4 +1,4 @@
-# ai-memory
+# vemora
 
 Repository-local memory system for LLM-assisted development.
 
@@ -11,12 +11,12 @@ When working on a large codebase with Claude Code or similar LLM tools, you face
 1. **Context cost** — dropping 50 files into the context wastes tokens on irrelevant code
 2. **Discovery** — you don't always know *which* files are relevant to a given task
 
-`ai-memory` solves both by pre-indexing the repo and making it queryable.
+`vemora` solves both by pre-indexing the repo and making it queryable.
 
 ## Architecture in three layers
 
 ```
-.ai-memory/          ← versioned in git, shared across the team
+.vemora/          ← versioned in git, shared across the team
   config.json
   metadata.json
   index/
@@ -32,7 +32,7 @@ When working on a large codebase with Claude Code or similar LLM tools, you face
   knowledge/
     entries.json     ← human/LLM-authored notes: decisions, gotchas, patterns
 
-~/.ai-memory-cache/<projectId>/    ← local to each developer, NOT in git
+~/.vemora-cache/<projectId>/    ← local to each developer, NOT in git
   embeddings.json                  ← metadata (model, dimensions, chunk mapping)
   embeddings.bin                   ← binary buffer of vectors (Float32Array)
   embeddings.hnsw.json             ← serialized HNSW index for ultra-fast search
@@ -43,7 +43,7 @@ The index, summaries, and knowledge entries are committed to git so teammates sh
 ## Installation
 
 ```bash
-# Inside the ai-memory/ directory
+# Inside the vemora/ directory
 npm install
 npm run build
 
@@ -51,55 +51,55 @@ npm run build
 npm link
 ```
 
-Or run directly with `node ai-memory/dist/cli.js` from the project root.
+Or run directly with `node vemora/dist/cli.js` from the project root.
 
 ## The Core Workflow
 
 ### 1. Setup (first time only)
 
 ```bash
-ai-memory init                  # create .ai-memory/ and config.json
-ai-memory index --no-embed      # build index without embeddings (fast)
-ai-memory index                 # or: build index + generate embeddings
-ai-memory summarize             # optional: generate LLM descriptions per file
-ai-memory init-agent            # generate instruction files for AI agents
+vemora init                  # create .vemora/ and config.json
+vemora index --no-embed      # build index without embeddings (fast)
+vemora index                 # or: build index + generate embeddings
+vemora summarize             # optional: generate LLM descriptions per file
+vemora init-agent            # generate instruction files for AI agents
 ```
 
 ### 2. Query during development
 
 ```bash
 # Search for relevant code
-ai-memory query "how does IMAP reconnect work?"
+vemora query "how does IMAP reconnect work?"
 
 # Full context block ready to paste into any LLM
-ai-memory context --query "email retry logic" > context.md
+vemora context --query "email retry logic" > context.md
 
 # One-shot answer from the configured LLM
-ai-memory ask "why does the sync queue stall?"
+vemora ask "why does the sync queue stall?"
 
 # Save a finding for future sessions
-ai-memory remember "EmailService.send queues if SMTP is offline — see OutboxRepository"
+vemora remember "EmailService.send queues if SMTP is offline — see OutboxRepository"
 ```
 
 ### 3. Keep the index fresh
 
 ```bash
-ai-memory index --watch         # incremental re-index on file save
-ai-memory index --no-embed      # after code changes, update structure only
+vemora index --watch         # incremental re-index on file save
+vemora index --no-embed      # after code changes, update structure only
 ```
 
 ## Commands
 
-### `ai-memory init`
+### `vemora init`
 
-Creates the `.ai-memory/` folder structure and adds `.ai-memory-cache/` to `.gitignore`.
+Creates the `.vemora/` folder structure and adds `.vemora-cache/` to `.gitignore`.
 
 ```
 Options:
   --root <dir>   project root (default: cwd)
 ```
 
-### `ai-memory index`
+### `vemora index`
 
 Scans the repo, parses symbols, builds the dependency graph, extracts TODO/FIXME/HACK/XXX annotations, and generates embeddings. **Incremental** — only re-processes files whose SHA-256 hash has changed.
 
@@ -111,7 +111,7 @@ Options:
   -w, --watch    watch for changes and re-index automatically
 ```
 
-### `ai-memory query "<question>"`
+### `vemora query "<question>"`
 
 Searches the index using vector similarity (or keyword fallback). Results use a **three-tier display** that compresses output by relevance rank.
 
@@ -153,7 +153,7 @@ src/infrastructure/protocols/smtp/smtp.service.ts:12 | SmtpService.connect (meth
 | 4–7  | med  | Declaration signature only |
 | 8+   | low  | File path + symbol + score + AI summary |
 
-### `ai-memory context`
+### `vemora context`
 
 Generates an **optimized LLM context block** combining project overview, a specific file, and relevant code chunks. Designed to be piped to a file or clipboard.
 
@@ -180,7 +180,7 @@ When `--file` is used, the context block also includes:
 - **Test files** linked to the file — convention-based (`.test.ts`, `__tests__/`) and import-based discovery
 - **Symbol callers** — for each symbol defined in the file, which other project symbols call it
 
-### `ai-memory ask "<question>"`
+### `vemora ask "<question>"`
 
 One-shot Q&A: retrieves relevant context and calls the configured LLM to answer directly. No interactive loop.
 
@@ -197,13 +197,13 @@ Options:
 Requires `summarization` to be configured in `config.json`. Useful for local models (Ollama) where the agent does not need to orchestrate multiple commands.
 
 ```bash
-ai-memory ask "how does the IMAP reconnect logic work?" --root .
-ai-memory ask "what does EmailService.send do?" --root . --keyword
+vemora ask "how does the IMAP reconnect logic work?" --root .
+vemora ask "what does EmailService.send do?" --root . --keyword
 ```
 
-### `ai-memory remember "<text>"`
+### `vemora remember "<text>"`
 
-Saves a persistent knowledge entry to `.ai-memory/knowledge/entries.json`. The entry is committed to git and included automatically in future `context` and `ask` results when relevant.
+Saves a persistent knowledge entry to `.vemora/knowledge/entries.json`. The entry is committed to git and included automatically in future `context` and `ask` results when relevant.
 
 ```
 Options:
@@ -215,22 +215,22 @@ Options:
 ```
 
 ```bash
-ai-memory remember "EmailService.send queues if SMTP offline — see OutboxRepository" \
+vemora remember "EmailService.send queues if SMTP offline — see OutboxRepository" \
   --category gotcha \
   --files src/core/email/services/email.service.ts \
   --symbols EmailService.send
 ```
 
-### `ai-memory knowledge`
+### `vemora knowledge`
 
 Manages saved knowledge entries.
 
 ```bash
-ai-memory knowledge list --root .          # list all entries grouped by category
-ai-memory knowledge forget <id> --root .   # remove an entry by ID (prefix match)
+vemora knowledge list --root .          # list all entries grouped by category
+vemora knowledge forget <id> --root .   # remove an entry by ID (prefix match)
 ```
 
-### `ai-memory init-agent`
+### `vemora init-agent`
 
 Generates AI agent instruction files from the existing index. Supports Claude Code, GitHub Copilot, Cursor, and Windsurf.
 
@@ -238,25 +238,25 @@ Generates AI agent instruction files from the existing index. Supports Claude Co
 Options:
   --root <dir>            project root (default: cwd)
   --agents <list>         comma-separated: claude,copilot,cursor,windsurf (default: all)
-  --force                 overwrite existing files that have no ai-memory markers
+  --force                 overwrite existing files that have no vemora markers
 ```
 
 | Agent | Output file |
 |---|---|
 | `claude` | `CLAUDE.md` |
 | `copilot` | `.github/copilot-instructions.md` |
-| `cursor` | `.cursor/rules/ai-memory.mdc` (with `alwaysApply: true`) |
+| `cursor` | `.cursor/rules/vemora.mdc` (with `alwaysApply: true`) |
 | `windsurf` | `.windsurfrules` |
 
 Each file includes a **two-layer instruction set**: abstract guidelines (for large cloud models) and an explicit quick-reference table (for small/local models).
 
-Re-running `init-agent` only updates the auto-generated block between `<!-- ai-memory:generated:start/end -->` markers. Custom content outside the markers is preserved.
+Re-running `init-agent` only updates the auto-generated block between `<!-- vemora:generated:start/end -->` markers. Custom content outside the markers is preserved.
 
-### `ai-memory init-claude`
+### `vemora init-claude`
 
 Thin wrapper for `init-agent --agents claude`. Kept for backward compatibility.
 
-### `ai-memory summarize`
+### `vemora summarize`
 
 Generates LLM-powered summaries for every indexed file and a high-level project overview. **Incremental** — only re-generates summaries for files whose content has changed.
 
@@ -269,11 +269,11 @@ Options:
   --project-only     (re)generate project overview from existing file summaries
 ```
 
-### `ai-memory status`
+### `vemora status`
 
 Prints index stats, embedding cache info, knowledge store summary (with staleness warnings), and a count of TODO/FIXME/HACK/XXX annotations by type.
 
-### `ai-memory deps <file>`
+### `vemora deps <file>`
 
 Shows the full dependency context for a file: what it imports, what imports it.
 
@@ -283,25 +283,25 @@ Options:
   -d, --depth <n>   transitive depth for outgoing imports (default: 1)
 ```
 
-### `ai-memory overview`
+### `vemora overview`
 
 Prints the project overview to stdout.
 
 ```bash
-ai-memory overview --root . > OVERVIEW.md
+vemora overview --root . > OVERVIEW.md
 ```
 
-### `ai-memory chat`
+### `vemora chat`
 
 Interactive chat session with the codebase. Supports OpenAI, Anthropic, and Ollama.
 
 ```bash
-ai-memory chat
-ai-memory chat --provider anthropic --model claude-3-5-sonnet-20240620
-ai-memory chat --provider ollama --model qwen2.5-coder:14b
+vemora chat
+vemora chat --provider anthropic --model claude-3-5-sonnet-20240620
+vemora chat --provider ollama --model qwen2.5-coder:14b
 ```
 
-### `ai-memory report`
+### `vemora report`
 
 Shows a usage statistics report: commands breakdown, search method distribution, token savings from each optimization step (semantic dedup, session filter, budget cap), and most frequent query terms.
 
@@ -313,13 +313,13 @@ Options:
   --clear        clear all recorded usage data
 ```
 
-Usage is tracked automatically on every `query`, `context`, and `ask` invocation. Data is stored locally at `~/.ai-memory-cache/<projectId>/usage.log.json` (never committed to git).
+Usage is tracked automatically on every `query`, `context`, and `ask` invocation. Data is stored locally at `~/.vemora-cache/<projectId>/usage.log.json` (never committed to git).
 
 ```bash
-ai-memory report --root .            # full report
-ai-memory report --root . --days 7   # last week only
-ai-memory report --root . --verbose  # + per-query log
-ai-memory report --root . --clear    # reset usage history
+vemora report --root .            # full report
+vemora report --root . --days 7   # last week only
+vemora report --root . --verbose  # + per-query log
+vemora report --root . --clear    # reset usage history
 ```
 
 ### Session flags (`--session`, `--fresh`)
@@ -332,11 +332,11 @@ Both `query` and `context` support session memory: chunks already seen in the cu
 ```
 
 ```bash
-ai-memory query "email retry logic" --root . --session
-ai-memory context --root . --query "sync engine" --session --fresh
+vemora query "email retry logic" --root . --session
+vemora context --root . --query "sync engine" --session --fresh
 ```
 
-### `ai-memory bench <query>`
+### `vemora bench <query>`
 
 Compares token consumption between minimal and full context modes.
 
@@ -344,7 +344,7 @@ Compares token consumption between minimal and full context modes.
 
 ## Configuration
 
-Edit `.ai-memory/config.json` after `init`:
+Edit `.vemora/config.json` after `init`:
 
 ```json
 {
@@ -427,18 +427,18 @@ The `query` and `context` commands do not call the LLM — they only use embeddi
 ## What goes in git
 
 ```
-✓ .ai-memory/config.json
-✓ .ai-memory/metadata.json
-✓ .ai-memory/index/files.json
-✓ .ai-memory/index/chunks.json
-✓ .ai-memory/index/symbols.json
-✓ .ai-memory/index/deps.json
-✓ .ai-memory/index/callgraph.json
-✓ .ai-memory/summaries/file-summaries.json
-✓ .ai-memory/summaries/project-summary.json
-✓ .ai-memory/knowledge/entries.json    ← shared knowledge store
+✓ .vemora/config.json
+✓ .vemora/metadata.json
+✓ .vemora/index/files.json
+✓ .vemora/index/chunks.json
+✓ .vemora/index/symbols.json
+✓ .vemora/index/deps.json
+✓ .vemora/index/callgraph.json
+✓ .vemora/summaries/file-summaries.json
+✓ .vemora/summaries/project-summary.json
+✓ .vemora/knowledge/entries.json    ← shared knowledge store
 
-✗ .ai-memory-cache/                    ← local embedding vectors (gitignored)
+✗ .vemora-cache/                    ← local embedding vectors (gitignored)
 ```
 
 ## Incremental indexing

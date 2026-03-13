@@ -1,13 +1,13 @@
-# ai-memory — Development Guide
+# vemora — Development Guide
 
-This document covers how to extend the tool, known limitations, and the planned roadmap. It is intended for developers and LLM agents continuing work on `ai-memory`.
+This document covers how to extend the tool, known limitations, and the planned roadmap. It is intended for developers and LLM agents continuing work on `vemora`.
 
 ---
 
 ## Development setup
 
 ```bash
-cd ai-memory/
+cd vemora/
 npm install
 npm run build          # compiles to dist/
 npm run build:watch    # watch mode for active development
@@ -37,7 +37,7 @@ node dist/cli.js report --root .. --days 7 --verbose
 
 ## Local model configuration (Ollama)
 
-`ai-memory` works fully offline with [Ollama](https://ollama.com). No API keys required.
+`vemora` works fully offline with [Ollama](https://ollama.com). No API keys required.
 
 ### Install and pull models
 
@@ -50,9 +50,9 @@ ollama pull qwen2.5-coder:7b      # ~4.7 GB
 ollama pull codellama:7b          # ~3.8 GB
 ```
 
-### Configure `.ai-memory/config.json`
+### Configure `.vemora/config.json`
 
-Run `ai-memory init --root .` first, then edit the generated config:
+Run `vemora init --root .` first, then edit the generated config:
 
 ```json
 {
@@ -89,7 +89,7 @@ node dist/cli.js query "authentication" --root . --keyword
 | `qwen2.5-coder:7b` | ~5 GB | ~20 tok/s | Good |
 | `qwen2.5-coder:14b` | ~9 GB | ~10 tok/s | Very good |
 
-For query and context commands (`ai-memory query`, `ai-memory context`), the LLM is not called — results come from the local index. The LLM is used only by `ai-memory chat` and `ai-memory summarize`.
+For query and context commands (`vemora query`, `vemora context`), the LLM is not called — results come from the local index. The LLM is used only by `vemora chat` and `vemora summarize`.
 
 ---
 
@@ -236,7 +236,7 @@ Append a "Suggested next step:" block at the end of every response:
 ```markdown
 ---
 Suggested next step:
-node ai-memory/dist/cli.js context --root . --file src/core/email/services/email.service.ts
+node vemora/dist/cli.js context --root . --file src/core/email/services/email.service.ts
 ```
 
 Suggestion logic: top score > 0.85 → suggest `context --file <top_file>`; 0.6–0.85 → suggest `context --query` with a narrower term; keyword-only → suggest enabling embeddings.
@@ -270,12 +270,12 @@ Queste non sono ottimizzazioni incrementali del pipeline RAG esistente, ma cambi
 
 ### E1. Memoria bidirezionale — l'LLM scrive nel knowledge store
 
-**Problema:** oggi il knowledge store è write-only da parte dell'utente (`ai-memory remember`). L'LLM non può scrivere nulla senza intervento umano esplicito.
+**Problema:** oggi il knowledge store è write-only da parte dell'utente (`vemora remember`). L'LLM non può scrivere nulla senza intervento umano esplicito.
 
 **Idea:** dopo ogni sessione `chat` o `ask`, analizzare la conversazione e proporre nuovi `KnowledgeEntry` in modo autonomo:
 
 ```typescript
-// Alla fine di ai-memory chat:
+// Alla fine di vemora chat:
 const proposed = await llm.extractKnowledge(conversationHistory);
 for (const entry of proposed) {
   console.log(`\nProposed knowledge entry:\n${entry.title}: ${entry.body}`);
@@ -290,7 +290,7 @@ for (const entry of proposed) {
 - "The pattern here is..." → `pattern`
 - "X is Y" (definizione) → `glossary`
 
-**Direzione più estrema:** write automatico senza conferma, con confidence bassa taggata come `llm:auto`. L'utente può revisionare con `ai-memory knowledge list`.
+**Direzione più estrema:** write automatico senza conferma, con confidence bassa taggata come `llm:auto`. L'utente può revisionare con `vemora knowledge list`.
 
 **Rischio:** noise se l'LLM fa inferenze sbagliate. Mitigabile con confidence threshold e revisione periodica.
 
@@ -337,7 +337,7 @@ if (drift > 0.3) {
 }
 ```
 
-Salvare in `.ai-memory/drift-log.json`. `ai-memory status` potrebbe mostrare le funzioni con drift elevato.
+Salvare in `.vemora/drift-log.json`. `vemora status` potrebbe mostrare le funzioni con drift elevato.
 
 **Caso d'uso concreto:** refactor silenziosi dove la firma non cambia ma il comportamento sì. Il drift log diventa un changelog semantico, non sintattico.
 
@@ -369,7 +369,7 @@ La logica di routing va in `src/commands/context.ts` come pre-step, prima del re
 
 **Problema:** ogni sessione parte da zero. Se un agente ha già esplorato `EmailService.send` e capito che è il collo di bottiglia, la sessione successiva non lo sa.
 
-**Idea:** un file di working memory locale (fuori da git, in `~/.ai-memory-cache/<projectId>/working-memory.json`) che accumula:
+**Idea:** un file di working memory locale (fuori da git, in `~/.vemora-cache/<projectId>/working-memory.json`) che accumula:
 
 ```json
 {
@@ -383,9 +383,9 @@ La logica di routing va in `src/commands/context.ts` come pre-step, prima del re
 L'agente può leggere e scrivere questo file con comandi dedicati:
 
 ```bash
-ai-memory memory show           # mostra lo stato corrente
-ai-memory memory note "..."     # aggiunge una nota
-ai-memory memory clear          # reset
+vemora memory show           # mostra lo stato corrente
+vemora memory note "..."     # aggiunge una nota
+vemora memory clear          # reset
 ```
 
 **Uso multi-agente:** se più sessioni condividono lo stesso cache dir (es. più terminali sullo stesso progetto), il blackboard diventa uno spazio condiviso. Potenzialmente utile per workflow con `claude --continue` o task lunghi.
@@ -460,7 +460,7 @@ Test runner: `vitest` (already in the parent project). Add to `package.json`:
 ## File structure summary
 
 ```
-ai-memory/
+vemora/
 ├── package.json
 ├── tsconfig.json
 ├── README.md
@@ -475,12 +475,12 @@ ai-memory/
     │   ├── types.ts        all TypeScript interfaces
     │   └── config.ts       constants, load/save config, defaults
     ├── storage/
-    │   ├── repository.ts   R/W .ai-memory/ JSON files
-    │   ├── cache.ts        R/W ~/.ai-memory-cache/ embeddings
-    │   ├── summaries.ts    R/W .ai-memory/summaries/ (file + project summaries)
-    │   ├── knowledge.ts    R/W .ai-memory/knowledge/entries.json
-    │   ├── session.ts      per-session seen-chunk tracking (~/.ai-memory-cache/<id>/session.json)
-    │   └── usage.ts        append-only usage log (~/.ai-memory-cache/<id>/usage.log.json)
+    │   ├── repository.ts   R/W .vemora/ JSON files
+    │   ├── cache.ts        R/W ~/.vemora-cache/ embeddings
+    │   ├── summaries.ts    R/W .vemora/summaries/ (file + project summaries)
+    │   ├── knowledge.ts    R/W .vemora/knowledge/entries.json
+    │   ├── session.ts      per-session seen-chunk tracking (~/.vemora-cache/<id>/session.json)
+    │   └── usage.ts        append-only usage log (~/.vemora-cache/<id>/usage.log.json)
     ├── indexer/
     │   ├── scanner.ts      fast-glob repository scan
     │   ├── hasher.ts       SHA-256 file and content hashing
@@ -501,19 +501,19 @@ ai-memory/
     ├── utils/
     │   └── tokenizer.ts    heuristic token counting [NEW]
     └── commands/
-        ├── init.ts         ai-memory init
-        ├── init-claude.ts  ai-memory init-claude (thin wrapper → init-agent)
-        ├── init-agent.ts   ai-memory init-agent (multi-agent instruction file generator)
-        ├── index.ts        ai-memory index (orchestrates everything)
-        ├── query.ts        ai-memory query (+ --format, --budget, symbol routing)
-        ├── context.ts      ai-memory context (+ --budget, --structured, knowledge integration)
-        ├── deps.ts         ai-memory deps <file>
-        ├── status.ts       ai-memory status (+ knowledge staleness detection)
-        ├── overview.ts     ai-memory overview
-        ├── chat.ts         ai-memory chat
-        ├── bench.ts        ai-memory bench
-        ├── summarize.ts    ai-memory summarize
-        ├── remember.ts     ai-memory remember <text> (knowledge store write)
-        ├── knowledge.ts    ai-memory knowledge list / forget
-        └── report.ts       ai-memory report (usage stats + token savings)
+        ├── init.ts         vemora init
+        ├── init-claude.ts  vemora init-claude (thin wrapper → init-agent)
+        ├── init-agent.ts   vemora init-agent (multi-agent instruction file generator)
+        ├── index.ts        vemora index (orchestrates everything)
+        ├── query.ts        vemora query (+ --format, --budget, symbol routing)
+        ├── context.ts      vemora context (+ --budget, --structured, knowledge integration)
+        ├── deps.ts         vemora deps <file>
+        ├── status.ts       vemora status (+ knowledge staleness detection)
+        ├── overview.ts     vemora overview
+        ├── chat.ts         vemora chat
+        ├── bench.ts        vemora bench
+        ├── summarize.ts    vemora summarize
+        ├── remember.ts     vemora remember <text> (knowledge store write)
+        ├── knowledge.ts    vemora knowledge list / forget
+        └── report.ts       vemora report (usage stats + token savings)
 ```

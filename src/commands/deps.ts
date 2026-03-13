@@ -11,7 +11,7 @@ export interface DepsOptions {
 }
 
 /**
- * ai-memory deps <file>
+ * vemora deps <file>
  *
  * Shows the dependency context for a specific file:
  *   - What it imports (direct + optionally transitive)
