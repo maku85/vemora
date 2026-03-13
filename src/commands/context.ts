@@ -14,6 +14,7 @@ import type {
 import { getFileGitHistory } from "../utils/git";
 import { createEmbeddingProvider } from "../embeddings/factory";
 import { computeImportedBy } from "../indexer/deps";
+import { findTestFiles } from "../indexer/tests";
 import { computeBM25Scores } from "../search/bm25";
 import { hybridSearch } from "../search/hybrid";
 import { deduplicateBySimilarity, mergeAdjacentChunks } from "../search/merge";
@@ -480,6 +481,49 @@ export function generateContextString(
             : `  - ${t.type} (line ${t.line}): ${t.text}`,
         );
       }
+      lines.push("");
+    }
+
+    // Test files linked to this source file
+    const allFileKeys = [...new Set(allChunks.map((c) => c.file))];
+    const testFiles = findTestFiles(relFile, allFileKeys, importedByMap);
+    if (testFiles.length > 0) {
+      lines.push(fmt === "markdown" ? "**Test files:**" : "Test files:");
+      for (const tf of testFiles) {
+        lines.push(fmt === "markdown" ? `- \`${tf}\`` : `  - ${tf}`);
+      }
+      lines.push("");
+    }
+
+    // Caller context: symbols exported by this file and who calls them
+    const fileSymbols = [
+      ...new Set(
+        allChunks
+          .filter((c) => c.file === relFile && c.symbol)
+          .map((c) => c.symbol as string),
+      ),
+    ];
+    const callerRows: string[] = [];
+    for (const sym of fileSymbols) {
+      const callInfo = callGraph[`${relFile}:${sym}`];
+      if (callInfo?.calledBy.length) {
+        const callers = callInfo.calledBy.slice(0, 5);
+        const rest = callInfo.calledBy.length - callers.length;
+        const callerList =
+          fmt === "markdown"
+            ? callers.map((c) => `\`${c}\``).join(", ") +
+              (rest > 0 ? ` _+${rest} more_` : "")
+            : callers.join(", ") + (rest > 0 ? ` +${rest} more` : "");
+        callerRows.push(
+          fmt === "markdown"
+            ? `- \`${sym}\` ← ${callerList}`
+            : `  - ${sym} <- ${callerList}`,
+        );
+      }
+    }
+    if (callerRows.length > 0) {
+      lines.push(fmt === "markdown" ? "**Symbol callers:**" : "Symbol callers:");
+      lines.push(...callerRows);
       lines.push("");
     }
 

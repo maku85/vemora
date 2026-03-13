@@ -177,6 +177,8 @@ At least one of `--query` or `--file` is required.
 When `--file` is used, the context block also includes:
 - **Recent git commits** that touched the file (last 5, via `git log --follow`)
 - **TODO/FIXME/HACK/XXX annotations** present in the file (from the index)
+- **Test files** linked to the file — convention-based (`.test.ts`, `__tests__/`) and import-based discovery
+- **Symbol callers** — for each symbol defined in the file, which other project symbols call it
 
 ### `ai-memory ask "<question>"`
 

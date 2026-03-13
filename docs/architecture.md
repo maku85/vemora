@@ -228,6 +228,49 @@ getFileGitHistory(rootDir, relPath, maxCommits=5)
 
 ---
 
+## Test file linkage (`ai-memory context --file`)
+
+When `--file` is used, `context` discovers test files related to the source file using `findTestFiles()`. No separate index is needed — results are derived at query time from the existing chunk corpus.
+
+Two complementary strategies are applied and deduplicated:
+
+```
+findTestFiles(relPath, allFiles, importedBy?)
+    │
+    ├── Strategy 1a: sibling test files
+    │       e.g. src/foo.ts → src/foo.test.ts, src/foo.spec.tsx
+    │
+    ├── Strategy 1b: same stem inside adjacent test directories
+    │       e.g. src/__tests__/foo.test.ts, test/foo.test.ts, __tests__/foo.ts
+    │
+    └── Strategy 2: import-based
+            any file that imports relPath AND whose path contains "test" or "spec"
+            (uses the reversed importedBy map from computeImportedBy)
+    │
+    ▼ deduplicated Set → sorted string[]
+```
+
+This is a **pure derivation** — no test linkage data is stored in the index. This avoids staleness issues with incremental indexing: the list is always accurate for the current set of indexed files.
+
+---
+
+## Caller context (`ai-memory context --file`)
+
+After test linkage, the file context block shows which symbols in the file are called by other symbols, grouped by exporting symbol. This is derived from the existing `callgraph.json` index.
+
+```
+For each symbol S in allChunks where chunk.file === relFile:
+    callGraph["${relFile}:${S}"].calledBy → list of callerIds
+    │
+    ▼ rendered as:
+      Symbol callers:
+      - `S` ← `src/commands/context.ts:runContext`, `src/cli.ts:main` [+N more]
+```
+
+Only symbols that actually appear in `calledBy` are shown. The display is capped at 5 callers per symbol with an overflow count.
+
+---
+
 ## Chunking strategy
 
 Chunks are the fundamental unit of both storage and retrieval. The chunker has two modes:
