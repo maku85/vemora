@@ -17,22 +17,6 @@ npx ts-node src/cli.ts init --root ..
 npx ts-node src/cli.ts index --root .. --no-embed
 npx ts-node src/cli.ts query "authentication" --root .. --keyword
 ```
-
-To test against the parent project (`achy-electron`):
-
-```bash
-node dist/cli.js index --root .. --no-embed --force
-node dist/cli.js query "email sending" --root .. --keyword --top-k 5
-node dist/cli.js query "IMAP auth" --root .. --format json --keyword
-node dist/cli.js query "sync engine" --root .. --format markdown
-node dist/cli.js context --root .. --query "how does IMAP authentication work?" --keyword
-node dist/cli.js context --root .. --file src/infrastructure/protocols/imap/imap-client.ts
-node dist/cli.js deps src/infrastructure/protocols/smtp/smtp.service.ts --root ..
-node dist/cli.js bench "performIndexIteration" --root ..
-node dist/cli.js report --root ..
-node dist/cli.js report --root .. --days 7 --verbose
-```
-
 ---
 
 ## Local model configuration (Ollama)

@@ -1,5 +1,9 @@
 # vemora
 
+[![npm version](https://img.shields.io/npm/v/vemora?label=npm)](https://www.npmjs.com/package/vemora)
+[![npm alpha](https://img.shields.io/npm/v/vemora/alpha?label=alpha)](https://www.npmjs.com/package/vemora?activeTab=versions)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Repository-local memory system for LLM-assisted development.
 
 Builds a structured, versioned index of your codebase — code chunks, symbols, dependency graph, and LLM-generated summaries — and enables semantic or keyword search over it. The result is a **RAG (Retrieval-Augmented Generation) layer** that lets you give an LLM only the code it actually needs, instead of entire files.
