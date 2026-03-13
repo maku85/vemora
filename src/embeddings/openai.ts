@@ -27,23 +27,30 @@ export class OpenAIEmbeddingProvider implements EmbeddingProvider {
     if (texts.length === 0) return [];
 
     const results: number[][] = [];
-
+    const batches: string[][] = [];
     for (let i = 0; i < texts.length; i += BATCH_SIZE) {
-      const batch = texts.slice(i, i + BATCH_SIZE);
-      const response = await this.client.embeddings.create({
-        model: this.model,
-        input: batch,
-        // text-embedding-3-* supports custom dimensions via Matryoshka reduction
-        ...(this.model.startsWith("text-embedding-3") && {
-          dimensions: this.dimensions,
-        }),
-      });
-
-      // Sort by index to guarantee order matches input
-      const sorted = response.data.sort((a, b) => a.index - b.index);
-      results.push(...sorted.map((e) => e.embedding));
+      batches.push(texts.slice(i, i + BATCH_SIZE));
     }
 
+    const MAX_PARALLEL = 4;
+    for (let i = 0; i < batches.length; i += MAX_PARALLEL) {
+      const parallelBatches = batches.slice(i, i + MAX_PARALLEL);
+      const responses = await Promise.all(
+        parallelBatches.map(batch =>
+          this.client.embeddings.create({
+            model: this.model,
+            input: batch,
+            ...(this.model.startsWith("text-embedding-3") && {
+              dimensions: this.dimensions,
+            }),
+          })
+        )
+      );
+      for (const response of responses) {
+        const sorted = response.data.sort((a, b) => a.index - b.index);
+        results.push(...sorted.map((e) => e.embedding));
+      }
+    }
     return results;
   }
 }

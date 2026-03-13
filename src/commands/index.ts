@@ -194,40 +194,46 @@ async function performIndexIteration(
     const parseSpinner = ora(`Parsing ${changedPaths.length} files...`).start();
     let _parseErrors = 0;
 
-    for (const relativePath of changedPaths) {
-      const absolutePath = path.join(rootDir, relativePath);
-      try {
-        if (!fs.existsSync(absolutePath)) continue;
-        const content = fs.readFileSync(absolutePath, "utf-8");
-        const hash = hashFile(absolutePath);
-        const stats = fs.statSync(absolutePath);
+    const BATCH_SIZE = 4;
+    for (let i = 0; i < changedPaths.length; i += BATCH_SIZE) {
+      const batch = changedPaths.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(async (relativePath) => {
+          const absolutePath = path.join(rootDir, relativePath);
+          try {
+            if (!fs.existsSync(absolutePath)) return;
+            const content = fs.readFileSync(absolutePath, "utf-8");
+            const hash = hashFile(absolutePath);
+            const stats = fs.statSync(absolutePath);
 
-        const symbols = parseSymbols(relativePath, content);
-        const chunks = chunkFile(relativePath, content, symbols, config);
-        const fileSymbols = buildSymbolIndex(relativePath, symbols);
+            const symbols = parseSymbols(relativePath, content);
+            const chunks = chunkFile(relativePath, content, symbols, config);
+            const fileSymbols = buildSymbolIndex(relativePath, symbols);
 
-        newFiles[relativePath] = {
-          hash,
-          size: stats.size,
-          lastModified: stats.mtime.toISOString(),
-          chunks: chunks.map((c) => c.id),
-          symbols: symbols.map((s) => s.name),
-        };
+            newFiles[relativePath] = {
+              hash,
+              size: stats.size,
+              lastModified: stats.mtime.toISOString(),
+              chunks: chunks.map((c) => c.id),
+              symbols: symbols.map((s) => s.name),
+            };
 
-        Object.assign(newSymbols, fileSymbols);
-        newChunks.push(...chunks);
-        changedContents.set(relativePath, content);
+            Object.assign(newSymbols, fileSymbols);
+            newChunks.push(...chunks);
+            changedContents.set(relativePath, content);
 
-        // Extract calls for Call Graph
-        const fileCalls = extractFileCalls(relativePath, content, {
-          symbols: newSymbols, // Use symbols extracted so far
-          deps: prevDeps, // Use previous deps for resolution during extraction
-          allFiles: allFilePaths, // Temporary placeholder, will refine later
-        });
-        partialCallGraphs.push(fileCalls);
-      } catch (_err) {
-        _parseErrors++;
-      }
+            // Extract calls for Call Graph
+            const fileCalls = extractFileCalls(relativePath, content, {
+              symbols: newSymbols,
+              deps: prevDeps,
+              allFiles: allFilePaths,
+            });
+            partialCallGraphs.push(fileCalls);
+          } catch (_err) {
+            _parseErrors++;
+          }
+        })
+      );
     }
     parseSpinner.succeed(`Parsed ${changedPaths.length} files`);
   }
