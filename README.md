@@ -44,14 +44,35 @@ The index, summaries, and knowledge entries are committed to git so teammates sh
 
 ```bash
 # Inside the vemora/ directory
-npm install
-npm run build
+pnpm install
+pnpm build
 
 # Link globally (optional)
-npm link
-```
+pnpm link
 
 Or run directly with `node vemora/dist/cli.js` from the project root.
+
+## Installing the alpha version from npm
+
+To install the alpha version:
+
+```
+pnpm install vemora@alpha
+```
+
+Or globally:
+
+```
+pnpm install -g vemora@alpha
+```
+
+You can also use npm:
+
+```
+npm install vemora@alpha
+npm run build
+npm link
+```
 
 ## The Core Workflow
 
