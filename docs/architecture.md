@@ -27,6 +27,7 @@ The system solves a specific tension: **more context = better LLM understanding,
 │      symbols.json       symbol → location map        │
 │      deps.json          intra-project import graph   │
 │      callgraph.json     function call graph          │
+│      todos.json         TODO/FIXME/HACK/XXX notes    │
 │    summaries/                                        │
 │      file-summaries.json  per-file AI descriptions   │
 │      project-summary.json project-level overview     │
@@ -82,13 +83,16 @@ Filesystem
     ├──▶ extractFileImports()  regex-based import parsing
     │       └─▶ ImportEntry[]  resolved intra-project imports with symbols
     │
+    ├──▶ extractTodos()        regex scan for TODO/FIXME/HACK/XXX comments
+    │       └─▶ TodoAnnotation[]  file, line (1-based), type, text
+    │
     └──▶ extractFileCalls()    tree-sitter call expression extraction
             └─▶ CallGraph[]    local calls and callees per file
 
     ▼ updateDependencyGraph() + buildGlobalCallGraph()
 [Graphs]   incremental merge with previous state
     │
-    ▼ saveFiles() + saveChunks() + saveSymbols() + saveDeps() + saveCallGraph()
+    ▼ saveFiles() + saveChunks() + saveSymbols() + saveDeps() + saveCallGraph() + saveTodos()
 [.ai-memory/index/]
     │
     ▼ EmbeddingProvider.embed()   batched, only new chunks
@@ -194,6 +198,33 @@ For each knowledge entry with relatedFiles:
 ```
 
 New entries created by `ai-memory remember --files ...` store a SHA-256 hash snapshot of each related file at creation time (`relatedFileHashes` field in `KnowledgeEntry`). Staleness is then detected by hash comparison, not timestamp, so a `touch` or editor save without content changes no longer triggers a false-positive warning.
+
+---
+
+## Git history context (`ai-memory context --file`)
+
+When `--file` is used, `context` calls `getFileGitHistory(rootDir, relPath)` on-demand via `git log --follow`. This is not stored in the index — git is the authoritative source. The last 5 commits that touched the file are appended to the file context block, giving the LLM "why was this changed" information without requiring any additional indexing.
+
+```
+getFileGitHistory(rootDir, relPath, maxCommits=5)
+    │
+    ▼ spawnSync("git", ["log", "--follow", "--format=%H\x1f%s\x1f%an\x1f%ai", "--", relPath])
+[GitCommit[]]   { sha (8 chars), message, author, date (YYYY-MM-DD) }
+    │
+    ▼ appended to file context section after imports/used-by
+```
+
+---
+
+## TODO/FIXME annotation index
+
+`extractTodos()` scans each changed file during `ai-memory index` for `TODO`, `FIXME`, `HACK`, and `XXX` markers (case-insensitive). Results are stored in `.ai-memory/index/todos.json` (versioned in git, shared with the team).
+
+**Incremental:** unchanged files carry their existing annotations forward; only changed files are re-scanned.
+
+**Exposed in two places:**
+- `ai-memory context --file <path>`: TODOs in that file are shown in the context block
+- `ai-memory status`: total count and per-type breakdown
 
 ---
 

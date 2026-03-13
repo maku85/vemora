@@ -9,6 +9,7 @@ import {
   INDEX_DIR,
   METADATA_FILE,
   SYMBOLS_JSON,
+  TODOS_JSON,
 } from "../core/config";
 import type {
   CallGraph,
@@ -17,6 +18,7 @@ import type {
   FileIndex,
   Metadata,
   SymbolIndex,
+  TodoAnnotation,
 } from "../core/types";
 
 /**
@@ -89,6 +91,19 @@ export class RepositoryStorage {
 
   saveCallGraph(graph: CallGraph): void {
     this.writeJson(path.join(this.indexDir, CALLGRAPH_JSON), graph);
+  }
+
+  // ─── TODO Annotations ────────────────────────────────────────────────────────
+
+  loadTodos(): TodoAnnotation[] {
+    return this.readJson<TodoAnnotation[]>(
+      path.join(this.indexDir, TODOS_JSON),
+      [],
+    );
+  }
+
+  saveTodos(todos: TodoAnnotation[]): void {
+    this.writeJson(path.join(this.indexDir, TODOS_JSON), todos);
   }
 
   // ─── Metadata ────────────────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ import type {
   KnowledgeEntry,
   SearchResult,
 } from "../core/types";
+import { getFileGitHistory } from "../utils/git";
 import { createEmbeddingProvider } from "../embeddings/factory";
 import { computeImportedBy } from "../indexer/deps";
 import { computeBM25Scores } from "../search/bm25";
@@ -448,6 +449,36 @@ export function generateContextString(
       lines.push(fmt === "markdown" ? "**Used by:**" : "Used by:");
       for (const caller of usedBy) {
         lines.push(fmt === "markdown" ? `- \`${caller}\`` : `  - ${caller}`);
+      }
+      lines.push("");
+    }
+
+    // Git commit history for this file
+    const commits = getFileGitHistory(rootDir, relFile);
+    if (commits.length > 0) {
+      lines.push(fmt === "markdown" ? "**Recent commits:**" : "Recent commits:");
+      for (const c of commits) {
+        lines.push(
+          fmt === "markdown"
+            ? `- \`${c.sha}\` ${c.message} _(${c.author}, ${c.date})_`
+            : `  - ${c.sha} ${c.message} (${c.author}, ${c.date})`,
+        );
+      }
+      lines.push("");
+    }
+
+    // TODOs / FIXMEs in this file
+    const fileTodos = new RepositoryStorage(rootDir).loadTodos().filter(
+      (t) => t.file === relFile,
+    );
+    if (fileTodos.length > 0) {
+      lines.push(fmt === "markdown" ? "**TODOs / FIXMEs:**" : "TODOs / FIXMEs:");
+      for (const t of fileTodos) {
+        lines.push(
+          fmt === "markdown"
+            ? `- **${t.type}** (line ${t.line}): ${t.text}`
+            : `  - ${t.type} (line ${t.line}): ${t.text}`,
+        );
       }
       lines.push("");
     }

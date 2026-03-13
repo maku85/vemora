@@ -25,6 +25,7 @@ When working on a large codebase with Claude Code or similar LLM tools, you face
     symbols.json     ← extracted symbol map
     deps.json        ← intra-project dependency graph
     callgraph.json   ← function-level call relationships
+    todos.json       ← TODO/FIXME/HACK/XXX annotations extracted from source
   summaries/
     file-summaries.json   ← LLM-generated 2-3 line description per file
     project-summary.json  ← LLM-generated ~500 word project overview
@@ -100,7 +101,7 @@ Options:
 
 ### `ai-memory index`
 
-Scans the repo, parses symbols, builds the dependency graph, and generates embeddings. **Incremental** — only re-processes files whose SHA-256 hash has changed.
+Scans the repo, parses symbols, builds the dependency graph, extracts TODO/FIXME/HACK/XXX annotations, and generates embeddings. **Incremental** — only re-processes files whose SHA-256 hash has changed.
 
 ```
 Options:
@@ -172,6 +173,10 @@ Options:
 ```
 
 At least one of `--query` or `--file` is required.
+
+When `--file` is used, the context block also includes:
+- **Recent git commits** that touched the file (last 5, via `git log --follow`)
+- **TODO/FIXME/HACK/XXX annotations** present in the file (from the index)
 
 ### `ai-memory ask "<question>"`
 
@@ -264,7 +269,7 @@ Options:
 
 ### `ai-memory status`
 
-Prints index stats, embedding cache info, knowledge store summary, and staleness warnings.
+Prints index stats, embedding cache info, knowledge store summary (with staleness warnings), and a count of TODO/FIXME/HACK/XXX annotations by type.
 
 ### `ai-memory deps <file>`
 

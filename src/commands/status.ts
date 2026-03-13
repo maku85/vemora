@@ -93,6 +93,21 @@ export async function runStatus(rootDir: string): Promise<void> {
     }
   }
 
+  // TODO / FIXME annotations
+  const todos = repo.loadTodos();
+  if (todos.length > 0) {
+    const byType = todos.reduce<Record<string, number>>((acc, t) => {
+      acc[t.type] = (acc[t.type] ?? 0) + 1;
+      return acc;
+    }, {});
+    console.log();
+    console.log(chalk.bold("Code annotations (versioned in git):"));
+    row("Total:", String(todos.length));
+    for (const [type, count] of Object.entries(byType).sort()) {
+      row(`  ${type}:`, String(count));
+    }
+  }
+
   // Circular dependency detection
   const deps = repo.loadDeps();
   const cycles = detectCycles(deps);

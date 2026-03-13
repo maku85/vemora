@@ -12,6 +12,7 @@ import type {
   FileIndex,
   Metadata,
   SymbolIndex,
+  TodoAnnotation,
 } from "../core/types";
 import { createEmbeddingProvider } from "../embeddings/factory";
 import { buildGlobalCallGraph, extractFileCalls } from "../indexer/callgraph";
@@ -24,6 +25,7 @@ import {
 import { hashFile } from "../indexer/hasher";
 import { buildSymbolIndex, parseSymbols } from "../indexer/parser";
 import { scanRepository } from "../indexer/scanner";
+import { extractTodos } from "../indexer/todos";
 import { EmbeddingCacheStorage } from "../storage/cache";
 import { RepositoryStorage } from "../storage/repository";
 
@@ -55,6 +57,7 @@ export async function runIndex(
     newSymbols,
     newDeps,
     newCallGraph,
+    newTodos,
     stats,
     changedPaths,
     deletedPaths,
@@ -67,6 +70,7 @@ export async function runIndex(
     repo.saveSymbols(newSymbols);
     repo.saveDeps(newDeps);
     repo.saveCallGraph(newCallGraph);
+    repo.saveTodos(newTodos);
 
     if (!options.noEmbed && config.embedding.provider !== "none") {
       const cache = await generateEmbeddings(
@@ -177,6 +181,12 @@ async function performIndexIteration(
     (c) => !reprocessPaths.has(c.file),
   );
 
+  // Carry forward todos from unchanged files
+  const prevTodos: TodoAnnotation[] = options.force ? [] : repo.loadTodos();
+  const newTodos: TodoAnnotation[] = prevTodos.filter(
+    (t) => !reprocessPaths.has(t.file),
+  );
+
   // Call Graph partials
   const partialCallGraphs: CallGraph[] = [];
   // Carry forward partial call graphs for unchanged files
@@ -221,6 +231,7 @@ async function performIndexIteration(
             Object.assign(newSymbols, fileSymbols);
             newChunks.push(...chunks);
             changedContents.set(relativePath, content);
+            newTodos.push(...extractTodos(relativePath, content));
 
             // Extract calls for Call Graph
             const fileCalls = extractFileCalls(relativePath, content, {
@@ -257,6 +268,7 @@ async function performIndexIteration(
     newSymbols,
     newDeps,
     newCallGraph,
+    newTodos,
     stats,
     changedPaths,
     deletedPaths,
@@ -346,7 +358,7 @@ async function startWatcher(
     );
 
     try {
-      const { newFiles, newChunks, newSymbols, newDeps, newCallGraph, stats } =
+      const { newFiles, newChunks, newSymbols, newDeps, newCallGraph, newTodos, stats } =
         await performIndexIteration(rootDir, config, repo, options, {
           changed,
           deleted,
@@ -357,6 +369,7 @@ async function startWatcher(
       repo.saveSymbols(newSymbols);
       repo.saveDeps(newDeps);
       repo.saveCallGraph(newCallGraph);
+      repo.saveTodos(newTodos);
 
       if (!options.noEmbed && config.embedding.provider !== "none") {
         const cache = cacheStorage.load();

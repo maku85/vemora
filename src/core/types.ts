@@ -268,6 +268,16 @@ export interface KnowledgeEntry {
   supersedes?: string;
 }
 
+// ─── TODO Annotations ─────────────────────────────────────────────────────────
+
+export interface TodoAnnotation {
+  file: string;
+  /** 1-based line number */
+  line: number;
+  type: "TODO" | "FIXME" | "HACK" | "XXX";
+  text: string;
+}
+
 // ─── Search Results ───────────────────────────────────────────────────────────
 
 export interface SearchResult {

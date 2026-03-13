@@ -16,6 +16,7 @@ export const CHUNKS_JSON = "chunks.json";
 export const SYMBOLS_JSON = "symbols.json";
 export const DEPS_JSON = "deps.json";
 export const CALLGRAPH_JSON = "callgraph.json";
+export const TODOS_JSON = "todos.json";
 export const SUMMARIES_DIR = "summaries";
 export const FILE_SUMMARIES_JSON = "file-summaries.json";
 export const PROJECT_SUMMARY_JSON = "project-summary.json";
