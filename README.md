@@ -308,6 +308,43 @@ Options:
   -d, --depth <n>   transitive depth for outgoing imports (default: 1)
 ```
 
+### `vemora usages <SymbolName>`
+
+Finds all files that use a named symbol, following re-export chains. Answers "who calls `fetchEmailBody`?" reliably — even when the symbol is re-exported through barrel files or passed under an alias.
+
+The command uses two data sources:
+
+- **Dependency graph** (primary, always available) — BFS over `deps.json` to find every file that imports the symbol, direct or transitive.
+- **Call graph** (supplementary, requires tree-sitter) — annotates each file with the calling function name.
+
+```
+Options:
+  --root <dir>          project root (default: cwd)
+  -d, --depth <n>       max re-export chain depth to follow (default: 10)
+  --callers-only        show only files with call graph data (known call sites)
+```
+
+Example output:
+
+```
+Usages of fetchEmailBody
+  Defined in src/email/body.ts:42  (function)
+
+Found 3 files that use this symbol:
+
+Direct imports  (from src/email/body.ts):
+  → src/email/index.ts [re-exports]  (called in: reExportAll)
+
+Via re-exports:
+  ↗ src/email/index.ts
+    → src/handlers/emailHandler.ts  (called in: processInbox)
+    → src/jobs/emailJob.ts
+
+Call graph: 2 of 3 files have call-site detail.
+```
+
+Files marked `[re-exports]` propagate the symbol further; the "Via re-exports" section shows the full transitive chain.
+
 ### `vemora overview`
 
 Prints the project overview to stdout.

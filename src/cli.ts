@@ -30,6 +30,7 @@ import { runKnowledgeForget, runKnowledgeList } from "./commands/knowledge";
 import { runOverview } from "./commands/overview";
 import { runQuery } from "./commands/query";
 import { runRemember } from "./commands/remember";
+import { runUsages } from "./commands/usages";
 import { runReport } from "./commands/report";
 import { runStatus } from "./commands/status";
 import { runSummarize } from "./commands/summarize";
@@ -689,6 +690,42 @@ knowledge
       process.exit(1);
     }
   });
+
+// ── usages ────────────────────────────────────────────────────────────────────
+
+program
+  .command("usages <symbol>")
+  .description(
+    "Find all files that use a symbol, following re-export chains",
+  )
+  .option("--root <dir>", "project root directory (default: cwd)", "")
+  .option(
+    "-d, --depth <n>",
+    "max re-export chain depth to follow (default: 10)",
+    "10",
+  )
+  .option(
+    "--callers-only",
+    "show only files with call graph data (known call sites)",
+    false,
+  )
+  .action(
+    async (
+      symbol: string,
+      opts: { root: string; depth: string; callersOnly: boolean },
+    ) => {
+      const rootDir = path.resolve(opts.root || process.cwd());
+      try {
+        await runUsages(rootDir, symbol, {
+          depth: parseInt(opts.depth, 10),
+          callersOnly: opts.callersOnly,
+        });
+      } catch (err) {
+        console.error(chalk.red("Error:"), (err as Error).message);
+        process.exit(1);
+      }
+    },
+  );
 
 // ── report ────────────────────────────────────────────────────────────────────
 

@@ -492,6 +492,7 @@ vemora/
         ├── query.ts        vemora query (+ --format, --budget, symbol routing)
         ├── context.ts      vemora context (+ --budget, --structured, knowledge integration)
         ├── deps.ts         vemora deps <file>
+        ├── usages.ts       vemora usages <symbol>
         ├── status.ts       vemora status (+ knowledge staleness detection)
         ├── overview.ts     vemora overview
         ├── chat.ts         vemora chat

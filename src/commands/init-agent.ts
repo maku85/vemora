@@ -41,7 +41,8 @@ Use this decision tree to choose the right command:
 | User asks to fix / refactor / add code | \`context --root . --query "<task>" --keyword\`, then check for \`*.test.ts\` before editing |
 | Output is too long for your context window | add \`--budget 2000\` (or lower) to any command |
 | No embeddings available / fast keyword search | add \`--keyword\` to any \`query\` or \`context\` call |
-| Need to understand who imports a file | \`deps <file> --root .\` |`;
+| Need to understand who imports a file | \`deps <file> --root .\` |
+| Need to find who calls a specific symbol | \`usages <SymbolName> --root .\` |`;
 
 // ─── Main command ─────────────────────────────────────────────────────────────
 
@@ -412,6 +413,9 @@ export function buildGeneratedBlock(
   lines.push("");
   lines.push("# List saved knowledge entries");
   lines.push("vemora knowledge list --root .");
+  lines.push("");
+  lines.push("# Find all callers of a symbol (follows re-export chains)");
+  lines.push("vemora usages <SymbolName> --root .");
   lines.push("```");
   lines.push("");
   lines.push(
