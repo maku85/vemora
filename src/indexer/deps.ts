@@ -2,7 +2,6 @@ import fs from "fs";
 import path from "path";
 import type {
   DependencyGraph,
-  FileDependencies,
   ImportEntry,
 } from "../core/types";
 
@@ -152,7 +151,9 @@ function extractRawImports(content: string): RawImport[] {
 
     const symbols: string[] = [];
     if (namedGroup) symbols.push(...parseNamedImports(namedGroup));
-    if (defaultName && /^\w+$/.test(defaultName)) symbols.push(defaultName);
+    // Store the reserved word "default" as a sentinel for default imports.
+    // The local alias (defaultName) is irrelevant for symbol resolution.
+    if (defaultName && /^\w+$/.test(defaultName)) symbols.push("default");
 
     results.push({ source, symbols });
   }

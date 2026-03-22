@@ -81,10 +81,17 @@ export async function runUsages(
   const queue: ImportChainNode[] = [];
   const allImporters: ImportChainNode[] = [];
 
+  // Whether the symbol is a default export — also match the "default" sentinel
+  const isDefaultExport = entry.isDefault === true;
+
   // Seed: direct importers of the definition file
   for (const [importerFile, fileDeps] of Object.entries(depGraph)) {
     for (const imp of fileDeps.imports) {
-      if (imp.file === defFile && imp.symbols.includes(resolvedName)) {
+      if (
+        imp.file === defFile &&
+        (imp.symbols.includes(resolvedName) ||
+          (isDefaultExport && imp.symbols.includes("default")))
+      ) {
         if (!visited.has(importerFile)) {
           visited.add(importerFile);
           const node: ImportChainNode = { file: importerFile, from: defFile, depth: 1 };

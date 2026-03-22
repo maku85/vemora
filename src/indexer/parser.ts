@@ -52,6 +52,8 @@ export interface ParsedSymbol {
   startLine: number;
   endLine: number;
   exported: boolean;
+  /** True when the symbol is the default export of its file */
+  isDefault?: boolean;
   parent?: string;
 }
 
@@ -93,6 +95,7 @@ export function buildSymbolIndex(
       startLine: sym.startLine,
       endLine: sym.endLine,
       exported: sym.exported,
+      isDefault: sym.isDefault,
       parent: sym.parent,
     };
   }
@@ -120,12 +123,14 @@ function visitNode(
   out: ParsedSymbol[],
   parentClass: string | null,
   insideExport: boolean,
+  isDefaultExport = false,
 ): void {
   switch (node.type) {
     case "export_statement": {
-      // Recurse into the declaration, marking it as exported
+      // Detect `export default X` by looking for a "default" keyword child
+      const isDefault = node.children.some((c) => c.type === "default");
       for (const child of node.namedChildren) {
-        visitNode(child, out, parentClass, true);
+        visitNode(child, out, parentClass, true, isDefault);
       }
       return;
     }
@@ -140,6 +145,7 @@ function visitNode(
           startLine: node.startPosition.row + 1,
           endLine: node.endPosition.row + 1,
           exported: insideExport,
+          isDefault: isDefaultExport || undefined,
           parent: parentClass ?? undefined,
         });
       }
@@ -156,6 +162,7 @@ function visitNode(
           startLine: node.startPosition.row + 1,
           endLine: node.endPosition.row + 1,
           exported: insideExport,
+          isDefault: isDefaultExport || undefined,
         });
         // Extract methods from class body
         const body = node.childForFieldName("body");
@@ -202,6 +209,7 @@ function visitNode(
               startLine: node.startPosition.row + 1,
               endLine: node.endPosition.row + 1,
               exported: insideExport,
+              isDefault: isDefaultExport || undefined,
             });
           } else if (insideExport && value) {
             out.push({
@@ -210,6 +218,7 @@ function visitNode(
               startLine: node.startPosition.row + 1,
               endLine: node.endPosition.row + 1,
               exported: true,
+              isDefault: isDefaultExport || undefined,
             });
           }
         }
@@ -226,6 +235,7 @@ function visitNode(
           startLine: node.startPosition.row + 1,
           endLine: node.endPosition.row + 1,
           exported: insideExport,
+          isDefault: isDefaultExport || undefined,
         });
       }
       return;
@@ -240,6 +250,7 @@ function visitNode(
           startLine: node.startPosition.row + 1,
           endLine: node.endPosition.row + 1,
           exported: insideExport,
+          isDefault: isDefaultExport || undefined,
         });
       }
       return;
@@ -308,7 +319,19 @@ function parseWithRegex(content: string): ParsedSymbol[] {
     re: RegExp;
     type: ParsedSymbol["type"];
     exportGroup?: boolean;
+    isDefault?: boolean;
   }> = [
+    // TypeScript/JavaScript — export default function/class
+    {
+      re: /^export\s+default\s+(async\s+)?function\s+(\w+)\s*[(<]/,
+      type: "function",
+      isDefault: true,
+    },
+    {
+      re: /^export\s+default\s+(abstract\s+)?class\s+(\w+)/,
+      type: "class",
+      isDefault: true,
+    },
     // TypeScript/JavaScript
     {
       re: /^(export\s+)?(async\s+)?function\s+(\w+)\s*[(<]/,
@@ -350,7 +373,7 @@ function parseWithRegex(content: string): ParsedSymbol[] {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("//") || trimmed.startsWith("#")) return;
 
-    for (const { re, type } of patterns) {
+    for (const { re, type, isDefault } of patterns) {
       const m = trimmed.match(re);
       if (m) {
         // Heuristic: find the captured group that looks like an identifier
@@ -371,9 +394,11 @@ function parseWithRegex(content: string): ParsedSymbol[] {
             startLine: i + 1,
             endLine: findEndLine(lines, i),
             exported:
+              isDefault ||
               trimmed.startsWith("export") ||
               trimmed.startsWith("pub ") ||
               trimmed.startsWith("pub("),
+            isDefault: isDefault || undefined,
           });
           break;
         }

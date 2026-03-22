@@ -118,6 +118,8 @@ export interface SymbolEntry {
   startLine: number;
   endLine: number;
   exported: boolean;
+  /** True when the symbol is the default export of its file */
+  isDefault?: boolean;
   /** For methods: the parent class name */
   parent?: string;
 }
