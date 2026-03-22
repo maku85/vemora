@@ -111,7 +111,8 @@ export async function runUsages(
       for (const imp of fileDeps.imports) {
         if (
           imp.file === current.file &&
-          imp.symbols.includes(resolvedName)
+          (imp.symbols.includes(resolvedName) ||
+            (isDefaultExport && imp.symbols.includes("default")))
         ) {
           if (!visited.has(importerFile)) {
             visited.add(importerFile);

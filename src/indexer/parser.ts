@@ -226,6 +226,21 @@ function visitNode(
       return;
     }
 
+    case "enum_declaration": {
+      const name = node.childForFieldName("name")?.text;
+      if (name) {
+        out.push({
+          name,
+          type: "type",
+          startLine: node.startPosition.row + 1,
+          endLine: node.endPosition.row + 1,
+          exported: insideExport,
+          isDefault: isDefaultExport || undefined,
+        });
+      }
+      return;
+    }
+
     case "interface_declaration": {
       const name = node.childForFieldName("name")?.text;
       if (name) {
@@ -354,6 +369,11 @@ function parseWithRegex(content: string): ParsedSymbol[] {
       exportGroup: true,
     },
     { re: /^(export\s+)?type\s+(\w+)\s*=/, type: "type", exportGroup: true },
+    {
+      re: /^(export\s+)?(const\s+)?enum\s+(\w+)/,
+      type: "type",
+      exportGroup: true,
+    },
     // Python
     { re: /^(async\s+)?def\s+(\w+)\s*\(/, type: "function" },
     { re: /^class\s+(\w+)(?:\s*:|\s*\()/, type: "class" },
