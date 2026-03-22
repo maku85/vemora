@@ -115,6 +115,7 @@ async function performIndexIteration(
   let changedPaths: string[] = [];
   let deletedPaths: string[] = [];
   let unchangedPaths: string[] = [];
+  const allScannedPaths = new Set<string>();
 
   if (specificPaths) {
     // If called from watcher, we already know what changed
@@ -123,6 +124,7 @@ async function performIndexIteration(
     // Carry forward everything else from prevFiles
     const affected = new Set([...changedPaths, ...deletedPaths]);
     unchangedPaths = Object.keys(prevFiles).filter((p) => !affected.has(p));
+    for (const p of [...changedPaths, ...unchangedPaths]) allScannedPaths.add(p);
   } else {
     // Standard run: scan everything
     const scanSpinner = ora("Scanning repository files...").start();
@@ -132,10 +134,9 @@ async function performIndexIteration(
     );
 
     const hashSpinner = ora("Computing file hashes...").start();
-    const scannedPaths = new Set<string>();
 
     for (const file of scanned) {
-      scannedPaths.add(file.relativePath);
+      allScannedPaths.add(file.relativePath);
       try {
         const hash = hashFile(file.absolutePath);
         const prev = prevFiles[file.relativePath];
@@ -149,7 +150,7 @@ async function performIndexIteration(
       }
     }
 
-    deletedPaths = Object.keys(prevFiles).filter((p) => !scannedPaths.has(p));
+    deletedPaths = Object.keys(prevFiles).filter((p) => !allScannedPaths.has(p));
 
     hashSpinner.succeed(
       [
@@ -169,7 +170,7 @@ async function performIndexIteration(
   for (const p of unchangedPaths) {
     if (prevFiles[p]) newFiles[p] = prevFiles[p];
   }
-  const allFilePaths = new Set(Object.keys(newFiles));
+  const allFilePaths = allScannedPaths;
 
   const reprocessPaths = new Set([...changedPaths, ...deletedPaths]);
   const newSymbols: SymbolIndex = Object.fromEntries(
