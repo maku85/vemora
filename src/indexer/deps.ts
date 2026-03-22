@@ -124,6 +124,17 @@ const EXPORT_FROM_RE =
   /^\s*export\s+(?:type\s+)?(?:\{([^}]*)\}|\*(?:\s+as\s+\w+)?)\s+from\s+['"]([^'"]+)['"]/gm;
 
 /**
+ * Matches combined default + named imports:
+ *   import Default, { A, B } from './path'
+ *   import Default, { type A, B } from './path'
+ *
+ * STATIC_IMPORT_RE cannot handle these because after matching the default
+ * identifier it expects `from` but finds `, {`.
+ */
+const COMBINED_IMPORT_RE =
+  /^\s*import\s+(\w+)\s*,\s*\{([^}]*)\}\s+from\s+['"]([^'"]+)['"]/gm;
+
+/**
  * Matches dynamic imports and require() calls:
  *   import('./path')
  *   require('./path')
@@ -165,6 +176,15 @@ function extractRawImports(content: string): RawImport[] {
     const source = m[2];
     if (!source) continue;
     const symbols = namedGroup ? parseNamedImports(namedGroup) : [];
+    results.push({ source, symbols });
+  }
+
+  // Combined: import Default, { Named } from './path'
+  COMBINED_IMPORT_RE.lastIndex = 0;
+  while ((m = COMBINED_IMPORT_RE.exec(content)) !== null) {
+    const source = m[3];
+    if (!source) continue;
+    const symbols = ["default", ...parseNamedImports(m[2])];
     results.push({ source, symbols });
   }
 

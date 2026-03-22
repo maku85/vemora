@@ -75,6 +75,67 @@ export async function runUsages(
   );
   console.log();
 
+  // ── Methods: call graph only ─────────────────────────────────────────────────
+  //
+  // Methods are not individually imported — the dep graph tracks the containing
+  // class import, not individual method calls. Use the call graph exclusively.
+  // The call graph stores methods as "file:methodName" (without class prefix).
+
+  if (entry.type === "method") {
+    const methodName = resolvedName.includes(".")
+      ? resolvedName.split(".").pop()!
+      : resolvedName;
+    const cgKey = `${defFile}:${methodName}`;
+    const cgEntry = callGraph[cgKey];
+    const calledBy = cgEntry?.calledBy ?? [];
+
+    if (calledBy.length === 0) {
+      console.log(chalk.gray("No call graph data for this method."));
+      console.log(
+        chalk.gray(
+          `  Methods are not tracked via imports — only the call graph can find callers.`,
+        ),
+      );
+      if (entry.parent) {
+        console.log(
+          chalk.gray(
+            `  Tip: try \`vemora usages ${entry.parent}\` to find all files that import the class.`,
+          ),
+        );
+      }
+      console.log(
+        chalk.gray(
+          "  Re-index with tree-sitter enabled to populate call graph data.",
+        ),
+      );
+    } else {
+      // Group calledBy entries by file
+      const byFile = new Map<string, string[]>();
+      for (const callerScope of calledBy) {
+        const colonIdx = callerScope.lastIndexOf(":");
+        if (colonIdx === -1) continue;
+        const callerFile = callerScope.substring(0, colonIdx);
+        const callerFn = callerScope.substring(colonIdx + 1);
+        const list = byFile.get(callerFile) ?? [];
+        if (!list.includes(callerFn)) list.push(callerFn);
+        byFile.set(callerFile, list);
+      }
+
+      console.log(
+        chalk.bold(`Found in ${byFile.size} file${byFile.size !== 1 ? "s" : ""} (via call graph):`),
+      );
+      console.log();
+      for (const [file, fns] of byFile) {
+        const callInfo = chalk.gray(`  (called in: ${fns.join(", ")})`);
+        console.log(`  ${chalk.gray("→")} ${chalk.blue(file)}${callInfo}`);
+      }
+      console.log();
+      console.log(chalk.yellow("⚠ Call graph coverage may be incomplete (arrow functions, injected dependencies)."));
+    }
+    console.log(chalk.gray(`Project: ${config.projectName} (${config.projectId})`));
+    return;
+  }
+
   // ── 2. BFS over dep graph to find all importers (following re-exports) ───────
 
   const visited = new Set<string>(); // importer files already enqueued
