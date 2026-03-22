@@ -304,8 +304,32 @@ Shows the full dependency context for a file: what it imports, what imports it.
 
 ```
 Options:
-  --root <dir>      project root (default: cwd)
-  -d, --depth <n>   transitive depth for outgoing imports (default: 1)
+  --root <dir>            project root (default: cwd)
+  -d, --depth <n>         transitive depth for outgoing imports (default: 1)
+  -r, --reverse-depth <n> transitive depth for incoming importers (default: 1)
+```
+
+Use `--reverse-depth` to answer "what is the blast radius of touching this file?":
+
+```bash
+# Who imports SyncOrchestrator directly (default)
+vemora deps src/core/sync/SyncOrchestrator.ts --root .
+
+# All files that depend on it, up to 3 hops away
+vemora deps src/core/sync/SyncOrchestrator.ts --root . --reverse-depth 3
+```
+
+The "Used by" section groups results by distance when `--reverse-depth` is greater than 1:
+
+```
+Used by — transitive up to depth 3 (8 files):
+  depth 1:
+    → src/jobs/syncJob.ts  {SyncOrchestrator}
+    → src/cli.ts           {SyncOrchestrator}
+  depth 2:
+    → src/app.ts
+  depth 3:
+    → src/server.ts
 ```
 
 ### `vemora usages <SymbolName>`

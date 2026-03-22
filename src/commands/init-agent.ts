@@ -42,6 +42,7 @@ Use this decision tree to choose the right command:
 | Output is too long for your context window | add \`--budget 2000\` (or lower) to any command |
 | No embeddings available / fast keyword search | add \`--keyword\` to any \`query\` or \`context\` call |
 | Need to understand who imports a file | \`deps <file> --root .\` |
+| Need to see the full blast radius of a change | \`deps <file> --root . --reverse-depth 3\` |
 | Need to find who calls a specific symbol | \`usages <SymbolName> --root .\` |`;
 
 // ─── Main command ─────────────────────────────────────────────────────────────

@@ -420,10 +420,18 @@ program
     "transitive depth for outgoing imports (default: 1)",
     "1",
   )
-  .action(async (file: string, opts: { root: string; depth: string }) => {
+  .option(
+    "-r, --reverse-depth <n>",
+    "transitive depth for incoming importers (default: 1)",
+    "1",
+  )
+  .action(async (file: string, opts: { root: string; depth: string; reverseDepth: string }) => {
     const rootDir = path.resolve(opts.root || process.cwd());
     try {
-      await runDeps(rootDir, file, { depth: parseInt(opts.depth, 10) });
+      await runDeps(rootDir, file, {
+        depth: parseInt(opts.depth, 10),
+        reverseDepth: parseInt(opts.reverseDepth, 10),
+      });
     } catch (err) {
       console.error(chalk.red("Error:"), (err as Error).message);
       process.exit(1);

@@ -343,6 +343,34 @@ export function computeImportedBy(
 }
 
 /**
+ * Returns all files that (transitively) import `startFile`, up to `depth` hops
+ * in the reverse dependency graph (following importedBy edges inward).
+ */
+export function getTransitiveImportedBy(
+  startFile: string,
+  importedByMap: Map<string, string[]>,
+  depth = 1,
+): Map<string, number> {
+  const visited = new Map<string, number>(); // file → distance
+  const queue: Array<[string, number]> = [[startFile, 0]];
+  let head = 0;
+
+  while (head < queue.length) {
+    const [file, dist] = queue[head++];
+    if (dist >= depth) continue;
+
+    for (const importer of importedByMap.get(file) ?? []) {
+      if (!visited.has(importer)) {
+        visited.set(importer, dist + 1);
+        queue.push([importer, dist + 1]);
+      }
+    }
+  }
+
+  return visited;
+}
+
+/**
  * Returns all files reachable from `startFile` up to `depth` hops
  * in the dependency graph (following imports outward).
  */

@@ -1,13 +1,15 @@
 import chalk from "chalk";
 import { loadConfig } from "../core/config";
-import { computeImportedBy, getTransitiveDeps } from "../indexer/deps";
+import { computeImportedBy, getTransitiveDeps, getTransitiveImportedBy } from "../indexer/deps";
 import { RepositoryStorage } from "../storage/repository";
 
 export interface DepsOptions {
   /** Show files that import the target (reverse direction) */
   usedBy?: boolean;
-  /** Recursion depth for transitive deps (default: 1) */
+  /** Recursion depth for outgoing imports (default: 1) */
   depth?: number;
+  /** Recursion depth for incoming importers (default: 1) */
+  reverseDepth?: number;
 }
 
 /**
@@ -45,6 +47,7 @@ export async function runDeps(
   }
 
   const depth = options.depth ?? 1;
+  const reverseDepth = options.reverseDepth ?? 1;
   const importedByMap = computeImportedBy(depGraph);
 
   // ── Header ────────────────────────────────────────────────────────────────
@@ -100,18 +103,48 @@ export async function runDeps(
   }
 
   // ── Incoming: what imports this file ─────────────────────────────────────
-  const callers = importedByMap.get(file) ?? [];
-  if (callers.length > 0) {
-    console.log(chalk.bold(`Used by (${callers.length}):`));
-    for (const caller of callers) {
-      // Show which symbols the caller imports from this file
+  const directCallers = importedByMap.get(file) ?? [];
+  if (directCallers.length === 0) {
+    console.log(chalk.gray("Not imported by any other file in the index."));
+    console.log();
+  } else if (reverseDepth <= 1) {
+    console.log(chalk.bold(`Used by (${directCallers.length}):`));
+    for (const caller of directCallers) {
       const entry = depGraph[caller]?.imports.find((i) => i.file === file);
       const syms = entry ? formatSymbols(entry.symbols) : "";
       console.log(`  ${chalk.gray("→")} ${chalk.blue(caller)}${syms}`);
     }
     console.log();
   } else {
-    console.log(chalk.gray("Not imported by any other file in the index."));
+    // Transitive reverse deps
+    const transitive = getTransitiveImportedBy(file, importedByMap, reverseDepth);
+    console.log(
+      chalk.bold(
+        `Used by — transitive up to depth ${reverseDepth} (${transitive.size} files):`,
+      ),
+    );
+
+    // Group by distance
+    const byDist = new Map<number, string[]>();
+    for (const [f, dist] of transitive) {
+      const list = byDist.get(dist) ?? [];
+      list.push(f);
+      byDist.set(dist, list);
+    }
+    for (const [dist, files] of [...byDist.entries()].sort(
+      (a, b) => a[0] - b[0],
+    )) {
+      console.log(chalk.gray(`  depth ${dist}:`));
+      for (const f of files) {
+        // For depth-1 files we can show symbols; deeper ones are indirect
+        const entry =
+          dist === 1
+            ? depGraph[f]?.imports.find((i) => i.file === file)
+            : undefined;
+        const syms = entry ? formatSymbols(entry.symbols) : "";
+        console.log(`    ${chalk.gray("→")} ${chalk.blue(f)}${syms}`);
+      }
+    }
     console.log();
   }
 
@@ -119,7 +152,7 @@ export async function runDeps(
   const contextFiles = new Set<string>([
     file,
     ...(fileDeps?.imports.map((i) => i.file) ?? []),
-    ...callers,
+    ...directCallers,
   ]);
   console.log(
     chalk.bold(`Suggested context for LLM (${contextFiles.size} files):`),
