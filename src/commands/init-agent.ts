@@ -25,10 +25,45 @@ export const MARKER_END = "<!-- vemora:generated:end -->";
 export const DEFAULT_INSTRUCTIONS = `## Working with this codebase
 
 - **Before reading any file**, check the Key Exports table below to locate the relevant symbol.
-- **Use \`vemora query\`** to retrieve focused context before starting any non-trivial task.
-- **Only open files** when you need implementation details not visible in the index.
-- After implementing changes, re-run \`vemora index --root . --no-embed\` to keep the index current.
-- **Save non-obvious findings** with \`vemora remember\` when you discover a gotcha, an architectural decision, or a pattern worth preserving for future sessions.
+- **Before querying**, try \`vemora query\` first — open a file only if the returned context is insufficient.
+- **Before modifying a file**, check its blast radius: \`vemora deps <file> --root . --reverse-depth 2\`.
+- **Before renaming a symbol or changing its API**, check who uses it: \`vemora usages <SymbolName> --root .\`.
+- **After making changes**, always run the build/test command to verify correctness before declaring done.
+- **Scope discipline**: only make changes directly requested. Do not refactor surrounding code, add comments, or improve things that were not explicitly asked.
+- **Save non-obvious findings** with \`vemora remember\` when you discover a gotcha, an architectural decision, or a pattern worth preserving for future sessions. Do not save things already obvious from reading the code.
+
+## Session setup
+
+For a live index, run this in a background terminal at the start of your session:
+
+\`\`\`bash
+vemora index --root . --watch
+\`\`\`
+
+Without it, re-index manually after significant changes:
+
+\`\`\`bash
+vemora index --root . --no-embed
+\`\`\`
+
+## Session memory
+
+At the **start of each session**, recall saved project knowledge:
+
+\`\`\`bash
+vemora knowledge list --root .
+\`\`\`
+
+During the session, **proactively save** anything non-obvious that future sessions would benefit from knowing:
+
+\`\`\`bash
+vemora remember "text" --root . --category decision   # architectural choice and why
+vemora remember "text" --root . --category gotcha     # surprising behaviour or constraint
+vemora remember "text" --root . --category pattern    # approved implementation pattern
+\`\`\`
+
+**Save:** why a design decision was made, a non-obvious constraint, a bug and its root cause, an approved pattern.
+**Do not save:** things obvious from reading the code, file structure, recent changes (use \`git log\`), or anything already in the index.
 
 ## Quick reference
 
@@ -136,6 +171,17 @@ function writeAgentFile(
   }
 }
 
+const CLAUDE_EXTRA_INSTRUCTIONS = `
+## Claude Code memory
+
+In addition to \`vemora remember\`, Claude Code has its own persistent memory system.
+Use it to save user preferences, feedback, and context that goes beyond the codebase itself:
+
+- Save user preferences, working style, and feedback that should persist across sessions.
+- At session end, write any non-obvious discoveries or decisions that aren't already captured by \`vemora remember\`.
+- Read memory at session start to re-establish context without asking the user to repeat themselves.
+`;
+
 function writeClaudeFile(
   rootDir: string,
   projectName: string,
@@ -144,15 +190,16 @@ function writeClaudeFile(
 ): void {
   const outputPath = path.join(rootDir, "CLAUDE.md");
   const label = "Claude Code: CLAUDE.md";
+  const fullInstructions = DEFAULT_INSTRUCTIONS + CLAUDE_EXTRA_INSTRUCTIONS;
 
   if (!fs.existsSync(outputPath)) {
-    const content = `# ${projectName}\n\n${DEFAULT_INSTRUCTIONS}\n\n${block}\n`;
+    const content = `# ${projectName}\n\n${fullInstructions}\n\n${block}\n`;
     fs.writeFileSync(outputPath, content, "utf-8");
     console.log(chalk.green(`✓ ${label} created`));
   } else {
     const result = mergeOrOverwrite(
       outputPath,
-      `# ${projectName}\n\n${DEFAULT_INSTRUCTIONS}\n\n${block}\n`,
+      `# ${projectName}\n\n${fullInstructions}\n\n${block}\n`,
       block,
       force,
       label,
