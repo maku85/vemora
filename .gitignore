@@ -11,7 +11,6 @@ dist/
 
 # Local cursor state
 .cursor/
-.github/
 CLAUDE.md
 GEMINI.md
 .windsurfrules
