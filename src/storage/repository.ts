@@ -125,12 +125,17 @@ export class RepositoryStorage {
     try {
       return JSON.parse(fs.readFileSync(filePath, "utf-8")) as T;
     } catch {
+      const rel = path.relative(this.memoryDir, filePath);
+      console.warn(`[vemora] warning: .vemora/${rel} is malformed — returning empty data. Re-run \`vemora index\` to rebuild.`);
       return fallback;
     }
   }
 
   private writeJson(filePath: string, data: unknown): void {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+    const dir = path.dirname(filePath);
+    fs.mkdirSync(dir, { recursive: true });
+    const tmp = filePath + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(data), "utf-8");
+    fs.renameSync(tmp, filePath);
   }
 }

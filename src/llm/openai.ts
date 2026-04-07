@@ -10,7 +10,7 @@ export class OpenAIProvider implements LLMProvider {
   // biome-ignore lint/suspicious/noExplicitAny: openai is an optional peer dependency
   private client: any;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, baseUrl?: string) {
     let OpenAI: any;
     try {
       // biome-ignore lint/suspicious/noExplicitAny: optional peer dependency
@@ -20,7 +20,10 @@ export class OpenAIProvider implements LLMProvider {
         'Package "openai" is not installed. Run: npm install openai',
       );
     }
-    this.client = new OpenAI({ apiKey });
+    this.client = new OpenAI({
+      apiKey,
+      ...(baseUrl ? { baseURL: baseUrl } : {}),
+    });
   }
 
   async chat(

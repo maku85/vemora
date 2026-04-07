@@ -15,7 +15,12 @@ When working on a large codebase with Claude Code or similar LLM tools, you face
 1. **Context cost** — dropping 50 files into the context wastes tokens on irrelevant code
 2. **Discovery** — you don't always know *which* files are relevant to a given task
 
-`vemora` solves both by pre-indexing the repo and making it queryable.
+`vemora` solves both by pre-indexing the repo and making it queryable. It also provides higher-level commands that go beyond retrieval:
+
+- **`vemora plan`** — a pro LLM (planner) decomposes a complex task into concrete steps; a smaller/free LLM (executor) carries out each step against targeted code context. Cuts costs by using expensive models only where they matter.
+- **`vemora audit`** — systematic, checklist-driven analysis of your codebase for security vulnerabilities, performance issues, and bugs. Covers every file, produces structured findings with severity levels.
+- **`vemora triage`** — zero-LLM static heuristic scan for bugs, security issues, and performance problems. Instant results with no API calls, useful as a first pass before a deeper audit.
+- **`vemora focus`** — aggregates all structural context about a file or symbol in one shot: implementation, exports, dependency graph, callers, test files, and saved knowledge.
 
 ## Architecture in three layers
 
@@ -53,29 +58,18 @@ pnpm build
 
 # Link globally (optional)
 pnpm link
+```
 
 Or run directly with `node vemora/dist/cli.js` from the project root.
 
-## Installing the alpha version from npm
+### Installing the alpha version from npm
 
-To install the alpha version:
+```bash
+pnpm install vemora@alpha     # local
+pnpm install -g vemora@alpha  # global
 
-```
-pnpm install vemora@alpha
-```
-
-Or globally:
-
-```
-pnpm install -g vemora@alpha
-```
-
-You can also use npm:
-
-```
-npm install vemora@alpha
-npm run build
-npm link
+# or with npm:
+npm install -g vemora@alpha
 ```
 
 ## The Core Workflow
@@ -86,7 +80,7 @@ npm link
 vemora init                  # create .vemora/ and config.json
 vemora index --no-embed      # build index without embeddings (fast)
 vemora index                 # or: build index + generate embeddings
-vemora summarize             # optional: generate LLM descriptions per file
+vemora summarize             # recommended: generate LLM descriptions per file
 vemora init-agent            # generate instruction files for AI agents
 ```
 
@@ -102,11 +96,29 @@ vemora context --query "email retry logic" > context.md
 # One-shot answer from the configured LLM
 vemora ask "why does the sync queue stall?"
 
+# All context about a file or symbol in one call (no LLM needed)
+vemora focus src/core/email/services/email.service.ts
+vemora focus EmailService.send
+
+# Static scan for bugs/perf/security (no API key required)
+vemora triage --type bugs,performance
+
 # Save a finding for future sessions
 vemora remember "EmailService.send queues if SMTP is offline — see OutboxRepository"
 ```
 
-### 3. Keep the index fresh
+### 3. Complex tasks with the planner-executor pattern
+
+```bash
+# Pro LLM plans, small/free LLM executes each step
+vemora plan "add rate limiting to the API layer" --confirm --synthesize
+
+# Audit the codebase for issues
+vemora audit --type security --root .
+vemora audit --since HEAD~1   # only changed files (great for CI)
+```
+
+### 4. Keep the index fresh
 
 ```bash
 vemora index --watch         # incremental re-index on file save
@@ -164,12 +176,6 @@ Options:
 | `markdown` | Paste-ready Markdown with code blocks |
 | `terse` | One line per result — recommended for small/local models |
 
-Terse format example:
-```
-src/core/email/services/email.service.ts:45 | EmailService.send (method) | 0.912 | async send(email: Email): Promise<void>
-src/infrastructure/protocols/smtp/smtp.service.ts:12 | SmtpService.connect (method) | 0.841 | async connect(config: SmtpConfig): Promise<void>
-```
-
 #### Output tiers (terminal/markdown)
 
 | Rank | Tier | Content shown |
@@ -201,13 +207,13 @@ At least one of `--query` or `--file` is required.
 
 When `--file` is used, the context block also includes:
 - **Recent git commits** that touched the file (last 5, via `git log --follow`)
-- **TODO/FIXME/HACK/XXX annotations** present in the file (from the index)
-- **Test files** linked to the file — convention-based (`.test.ts`, `__tests__/`) and import-based discovery
+- **TODO/FIXME/HACK/XXX annotations** present in the file
+- **Test files** linked to the file — convention-based and import-based discovery
 - **Symbol callers** — for each symbol defined in the file, which other project symbols call it
 
 ### `vemora ask "<question>"`
 
-One-shot Q&A: retrieves relevant context and calls the configured LLM to answer directly. No interactive loop.
+One-shot Q&A: retrieves relevant context and calls the configured LLM to answer directly.
 
 ```
 Options:
@@ -219,11 +225,134 @@ Options:
   --show-context      print the retrieved context before the answer
 ```
 
-Requires `summarization` to be configured in `config.json`. Useful for local models (Ollama) where the agent does not need to orchestrate multiple commands.
-
 ```bash
 vemora ask "how does the IMAP reconnect logic work?" --root .
 vemora ask "what does EmailService.send do?" --root . --keyword
+```
+
+### `vemora plan "<task>"`
+
+**Planner-executor pattern**: a capable LLM decomposes the task into a structured plan; a smaller/cheaper LLM executes each step against targeted code context.
+
+The planner works from **file summaries and the symbol list** — not raw code — so its token cost stays low regardless of codebase size. The executor receives only the chunks relevant to its specific step (targeted by file/symbol, not just search).
+
+```
+Options:
+  --root <dir>        project root (default: cwd)
+  -k, --top-k <n>     chunks to retrieve per step when falling back to search (default: 5)
+  --keyword           use keyword search (no embeddings required)
+  --budget <n>        max context tokens per step (default: 4000)
+  --confirm           show the plan and ask for confirmation before executing
+  --synthesize        call the planner again after all steps to produce a single final answer
+  --show-context      print retrieved context for each step
+```
+
+#### Step action types
+
+| Action | Behaviour |
+|---|---|
+| `read` | Pull code into context — no LLM call, zero executor tokens |
+| `analyze` | Executor answers a question in prose |
+| `write` | Executor produces a unified diff ready to apply |
+| `test` | Run a shell command; capture stdout/stderr as step result |
+
+#### Key features
+
+- **Parallel execution** — steps without dependencies run concurrently
+- **Step dependencies** (`dependsOn`) — later steps receive prior results as context
+- **Context deduplication** — the same file/symbol combination is retrieved only once per session
+- **Adaptive re-planning** — if an executor step reports insufficient context (`INSUFFICIENT:`), the planner adds remediation steps automatically
+- **Save synthesis** — after `--synthesize`, optionally save the result as a knowledge entry
+
+```bash
+# Plan, preview, and execute with final synthesis
+vemora plan "add batch() method to OpenAIEmbeddingProvider" --confirm --synthesize
+
+# Analysis only (no code changes)
+vemora plan "explain how the hybrid search pipeline works" --keyword
+
+# With explicit executor diff output
+vemora plan "fix the N+1 query in UserRepository.findAll"
+```
+
+#### Configuration
+
+```json
+{
+  "planner":       { "provider": "anthropic", "model": "claude-opus-4-6" },
+  "summarization": { "provider": "gemini",    "model": "gemini-2.0-flash", "apiKey": "..." }
+}
+```
+
+`summarization` acts as the executor. If `planner` is omitted, both roles use the same model.
+
+### `vemora audit`
+
+Systematic, checklist-driven code audit for **security vulnerabilities**, **performance issues**, and **bugs**. Covers every file in the codebase (or only changed files with `--since`).
+
+```
+Options:
+  --root <dir>        project root (default: cwd)
+  --type <types>      comma-separated: security, performance, bugs (default: all three)
+  --since <ref>       only audit files changed since this git ref (e.g. HEAD~5, main)
+  --budget <n>        max context tokens per step (default: 5000)
+  --keyword           use keyword search (no embeddings required)
+  --output <fmt>      terminal (default) | json | markdown
+  --save              save critical/high findings as knowledge entries
+```
+
+#### Built-in checklists
+
+| Type | Examples |
+|---|---|
+| `security` | SQL/command/path injection, hardcoded secrets, weak crypto, missing auth/authz, XSS, CSRF, prototype pollution |
+| `performance` | N+1 queries, sync I/O in async context, unbounded data loading, memory accumulation, blocking event loop |
+| `bugs` | Null dereference, unhandled promise rejections, race conditions, resource leaks, swallowed errors, off-by-one |
+
+#### How it works
+
+1. The **planner** receives the file list + summaries and generates a systematic audit plan, grouping 2-5 related files per step with specific checklist items.
+2. Steps execute in **parallel waves of 3** — the executor returns structured JSON findings for each group.
+3. Findings are **deduplicated, sorted by severity**, and displayed as a report.
+4. `--save` persists critical/high findings to the knowledge store for future sessions.
+
+```bash
+# Full audit
+vemora audit --root .
+
+# Security only
+vemora audit --type security --root .
+
+# Audit only what changed in the last commit (ideal for CI/CD)
+vemora audit --since HEAD~1 --root .
+
+# Audit changes vs main branch, save findings
+vemora audit --since main --type security,bugs --save --root .
+
+# Export for a PR review
+vemora audit --since main --output markdown --root . > audit-report.md
+```
+
+#### Example output
+
+```
+── Audit Report [security] ─────────────────────────────
+   12 file(s) analysed · 3 finding(s)
+
+[CRITICAL] Injection  src/api/users.ts:89
+  User input concatenated directly into SQL query without parameterization.
+  → Use parameterized queries or a query builder.
+
+[HIGH] Hardcoded Secret  src/config.ts:12
+  API key hardcoded in source — will be exposed in version control.
+  → Move to environment variables and rotate the key.
+
+[MEDIUM] Missing Authorization  src/api/admin.ts:34
+  Admin endpoint does not verify that the caller has the admin role.
+  → Add role check before processing the request.
+
+─────────────────────────────────────────────────────────
+  1 critical · 1 high · 1 medium
 ```
 
 ### `vemora remember "<text>"`
@@ -257,33 +386,30 @@ vemora knowledge forget <id> --root .   # remove an entry by ID (prefix match)
 
 ### `vemora init-agent`
 
-Generates AI agent instruction files from the existing index. Supports Claude Code, GitHub Copilot, Cursor, and Windsurf.
+Generates AI agent instruction files from the existing index. Supports Claude Code, Gemini, GitHub Copilot, Cursor, and Windsurf.
 
 ```
 Options:
-  --root <dir>            project root (default: cwd)
-  --agents <list>         comma-separated: claude,copilot,cursor,windsurf (default: all)
-  --force                 overwrite existing files that have no vemora markers
+  --root <dir>     project root (default: cwd)
+  --agent <name>   target a single agent: claude, gemini, copilot, cursor, windsurf (default: all)
+  --force          overwrite existing files that have no vemora markers
 ```
 
 | Agent | Output file |
 |---|---|
 | `claude` | `CLAUDE.md` |
+| `gemini` | `GEMINI.md` |
 | `copilot` | `.github/copilot-instructions.md` |
 | `cursor` | `.cursor/rules/vemora.mdc` (with `alwaysApply: true`) |
 | `windsurf` | `.windsurfrules` |
 
-Each file includes a **two-layer instruction set**: abstract guidelines (for large cloud models) and an explicit quick-reference table (for small/local models).
-
 Re-running `init-agent` only updates the auto-generated block between `<!-- vemora:generated:start/end -->` markers. Custom content outside the markers is preserved.
-
-### `vemora init-claude`
-
-Thin wrapper for `init-agent --agents claude`. Kept for backward compatibility.
 
 ### `vemora summarize`
 
 Generates LLM-powered summaries for every indexed file and a high-level project overview. **Incremental** — only re-generates summaries for files whose content has changed.
+
+Summaries are used by `vemora plan` and `vemora audit` as cheap planner context (instead of raw code chunks).
 
 ```
 Options:
@@ -292,11 +418,16 @@ Options:
   --model <name>     override LLM model (default: gpt-4o-mini)
   --files-only       only generate per-file summaries
   --project-only     (re)generate project overview from existing file summaries
+  --show             print the existing project overview without regenerating
+```
+
+```bash
+vemora summarize --show --root .   # print overview without regenerating
 ```
 
 ### `vemora status`
 
-Prints index stats, embedding cache info, knowledge store summary (with staleness warnings), and a count of TODO/FIXME/HACK/XXX annotations by type.
+Prints index stats, embedding cache info, knowledge store summary, and a count of TODO/FIXME/HACK/XXX annotations by type.
 
 ### `vemora deps <file>`
 
@@ -309,87 +440,34 @@ Options:
   -r, --reverse-depth <n> transitive depth for incoming importers (default: 1)
 ```
 
-Use `--reverse-depth` to answer "what is the blast radius of touching this file?":
-
 ```bash
-# Who imports SyncOrchestrator directly (default)
-vemora deps src/core/sync/SyncOrchestrator.ts --root .
-
-# All files that depend on it, up to 3 hops away
+# All files that depend on SyncOrchestrator, up to 3 hops
 vemora deps src/core/sync/SyncOrchestrator.ts --root . --reverse-depth 3
-```
-
-The "Used by" section groups results by distance when `--reverse-depth` is greater than 1:
-
-```
-Used by — transitive up to depth 3 (8 files):
-  depth 1:
-    → src/jobs/syncJob.ts  {SyncOrchestrator}
-    → src/cli.ts           {SyncOrchestrator}
-  depth 2:
-    → src/app.ts
-  depth 3:
-    → src/server.ts
 ```
 
 ### `vemora usages <SymbolName>`
 
-Finds all files that use a named symbol, following re-export chains. Answers "who calls `fetchEmailBody`?" reliably — even when the symbol is re-exported through barrel files or passed under an alias.
-
-The command uses two data sources:
-
-- **Dependency graph** (primary, always available) — BFS over `deps.json` to find every file that imports the symbol, direct or transitive.
-- **Call graph** (supplementary, requires tree-sitter) — annotates each file with the calling function name.
+Finds all files that use a named symbol, following re-export chains.
 
 ```
 Options:
   --root <dir>          project root (default: cwd)
   -d, --depth <n>       max re-export chain depth to follow (default: 10)
-  --callers-only        show only files with call graph data (known call sites)
-```
-
-Example output:
-
-```
-Usages of fetchEmailBody
-  Defined in src/email/body.ts:42  (function)
-
-Found 3 files that use this symbol:
-
-Direct imports  (from src/email/body.ts):
-  → src/email/index.ts [re-exports]  (called in: reExportAll)
-
-Via re-exports:
-  ↗ src/email/index.ts
-    → src/handlers/emailHandler.ts  (called in: processInbox)
-    → src/jobs/emailJob.ts
-
-Call graph: 2 of 3 files have call-site detail.
-```
-
-Files marked `[re-exports]` propagate the symbol further; the "Via re-exports" section shows the full transitive chain.
-
-### `vemora overview`
-
-Prints the project overview to stdout.
-
-```bash
-vemora overview --root . > OVERVIEW.md
+  --callers-only        show only files with call graph data
 ```
 
 ### `vemora chat`
 
-Interactive chat session with the codebase. Supports OpenAI, Anthropic, and Ollama.
+Interactive chat session with the codebase. Supports OpenAI, Anthropic, Gemini, and Ollama.
 
 ```bash
-vemora chat
-vemora chat --provider anthropic --model claude-3-5-sonnet-20240620
+vemora chat --provider anthropic --model claude-opus-4-6
 vemora chat --provider ollama --model qwen2.5-coder:14b
 ```
 
 ### `vemora report`
 
-Shows a usage statistics report: commands breakdown, search method distribution, token savings from each optimization step (semantic dedup, session filter, budget cap), and most frequent query terms.
+Shows a usage statistics report: commands breakdown, token savings, and most frequent query terms.
 
 ```
 Options:
@@ -399,32 +477,58 @@ Options:
   --clear        clear all recorded usage data
 ```
 
-Usage is tracked automatically on every `query`, `context`, and `ask` invocation. Data is stored locally at `~/.vemora-cache/<projectId>/usage.log.json` (never committed to git).
+### `vemora triage`
+
+Zero-LLM static heuristic scan for bugs, security issues, and performance problems. Works entirely from the existing index — no API key or network access required.
+
+```
+Options:
+  --root <dir>        project root (default: cwd)
+  --type <types>      comma-separated: bugs, security, performance (default: all)
+  -k, --top-k <n>     max findings to return, ranked by score (default: 30)
+  --min-score <n>     skip findings below this threshold (default: 1)
+  --file <path>       restrict scan to files matching this substring
+  --output <fmt>      terminal (default) | json | markdown
+```
+
+Each finding includes a severity (high/medium/low), a reason, and the exact code location.
 
 ```bash
-vemora report --root .            # full report
-vemora report --root . --days 7   # last week only
-vemora report --root . --verbose  # + per-query log
-vemora report --root . --clear    # reset usage history
+# Full scan
+vemora triage --root .
+
+# Bugs only, top 10, export to Markdown
+vemora triage --type bugs -k 10 --output markdown --root .
+
+# Security scan limited to the API layer
+vemora triage --type security --file src/api --root .
 ```
 
-### Session flags (`--session`, `--fresh`)
+Heuristics cover: empty catch blocks, unguarded `JSON.parse`, sync I/O in loops, `any` casts, hardcoded secrets, dangerous `eval`/`exec`, prototype pollution, SQL/command injection patterns, and more.
 
-Both `query` and `context` support session memory: chunks already seen in the current session are skipped to avoid re-sending redundant context to the LLM.
+### `vemora focus <target>`
+
+Aggregates all structural context about a file or symbol in one call — replaces the need to run `context`, `deps`, `usages`, and `knowledge` separately.
 
 ```
---session   skip chunks already seen in this session (auto-expires after 30 min idle)
---fresh     reset session memory before this query
+Options:
+  --root <dir>      project root (default: cwd)
+  --format <fmt>    markdown (default) | plain
 ```
+
+`<target>` can be a file path (full or partial) or a symbol name:
 
 ```bash
-vemora query "email retry logic" --root . --session
-vemora context --root . --query "sync engine" --session --fresh
+# File focus — exports, chunks, imports, importers, call graph, tests, knowledge
+vemora focus src/core/email/services/email.service.ts --root .
+vemora focus email.service --root .   # partial path match
+
+# Symbol focus — implementation, callers, callees, sibling members, tests
+vemora focus EmailService.send --root .
+
+# Pipe into a context block for any LLM
+vemora focus src/search/hybrid.ts --root . --format plain > context.md
 ```
-
-### `vemora bench <query>`
-
-Compares token consumption between minimal and full context modes.
 
 ---
 
@@ -456,57 +560,89 @@ Edit `.vemora/config.json` after `init`:
 }
 ```
 
+### Planner-executor configuration
+
+Add a `planner` block to use a more capable model for planning while a smaller model handles execution:
+
+```json
+{
+  "planner": {
+    "provider": "anthropic",
+    "model": "claude-opus-4-6"
+  },
+  "summarization": {
+    "provider": "gemini",
+    "model": "gemini-2.0-flash",
+    "apiKey": "your-google-ai-studio-key"
+  }
+}
+```
+
+`planner` is used by `vemora plan` and `vemora audit`. `summarization` acts as the executor. If `planner` is omitted, both roles use `summarization`.
+
 ### `display.format`
 
-Sets the default output format for `query`, `context`, and `ask`. Set to `"terse"` for small/local models with limited context windows. Can always be overridden per-command with `--format markdown`.
+Sets the default output format for `query`, `context`, and `ask`. Set to `"terse"` for small/local models with limited context windows.
 
 ### Embedding providers
 
 | Provider | Config | Notes |
 |---|---|---|
 | `openai` | `OPENAI_API_KEY` env or `apiKey` in config | Best quality. Requires `npm install openai`. |
-| `ollama` | `baseUrl` (default: `http://localhost:11434`) | Local, no cost, no extra install. |
+| `ollama` | `baseUrl` (default: `http://localhost:11434`) | Local, no cost. |
 | `none` | — | Keyword search only, no embeddings. |
 
 ### LLM providers
 
-Used by `ask`, `chat`, and `summarize`. The embedding provider and LLM provider are configured independently.
+Used by `ask`, `chat`, `summarize`, `plan`, and `audit`.
 
 | Provider | Config | Notes |
 |---|---|---|
-| `openai` | `OPENAI_API_KEY` env or `apiKey` in config | Requires `npm install openai`. |
+| `openai` | `OPENAI_API_KEY` env or `apiKey` in config | Also works with any OpenAI-compatible endpoint via `baseUrl`. |
 | `anthropic` | `ANTHROPIC_API_KEY` env or `apiKey` in config | Requires `npm install @anthropic-ai/sdk`. |
-| `ollama` | `baseUrl` (default: `http://localhost:11434`) | Local, no cost, no extra install. |
+| `gemini` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` env or `apiKey` in config | Uses Google's OpenAI-compatible endpoint. Free tier available via Google AI Studio. |
+| `ollama` | `baseUrl` (default: `http://localhost:11434`) | Local, no cost. |
 
-> Note: Anthropic does not offer an embedding API. If you use `anthropic` as your LLM provider, you still need to choose a separate embedding provider (`openai` or `ollama`).
+#### OpenAI-compatible endpoints
 
-### Using local models (Ollama)
-
-Fully offline workflow with no API keys required:
-
-```bash
-ollama pull nomic-embed-text      # 274 MB — embeddings
-ollama pull qwen2.5-coder:14b     # ~9 GB — recommended for 16 GB RAM
-```
+The `openai` provider accepts a `baseUrl` field, enabling any compatible API:
 
 ```json
+{ "provider": "openai", "model": "llama-3.3-70b-versatile", "baseUrl": "https://api.groq.com/openai/v1", "apiKey": "..." }
+```
+
+| Service | `baseUrl` | Free tier |
+|---|---|---|
+| Groq | `https://api.groq.com/openai/v1` | Yes (rate limited) |
+| OpenRouter | `https://openrouter.ai/api/v1` | Some free models |
+| Gemini (compat) | `https://generativelanguage.googleapis.com/v1beta/openai/` | Yes |
+
+### Recommended configurations
+
+**Maximum quality (cloud)**
+```json
 {
-  "embedding": {
-    "provider": "ollama",
-    "model": "nomic-embed-text",
-    "baseUrl": "http://localhost:11434",
-    "dimensions": 768
-  },
-  "summarization": {
-    "provider": "ollama",
-    "model": "qwen2.5-coder:14b",
-    "baseUrl": "http://localhost:11434"
-  },
-  "display": { "format": "terse" }
+  "planner":       { "provider": "anthropic", "model": "claude-opus-4-6" },
+  "summarization": { "provider": "openai",    "model": "gpt-4o-mini" }
 }
 ```
 
-The `query` and `context` commands do not call the LLM — they only use embeddings. The LLM is called only by `ask`, `chat`, and `summarize`.
+**Pro planner + free executor**
+```json
+{
+  "planner":       { "provider": "anthropic", "model": "claude-opus-4-6" },
+  "summarization": { "provider": "gemini",    "model": "gemini-2.0-flash", "apiKey": "..." }
+}
+```
+
+**Fully local (no API keys)**
+```json
+{
+  "embedding":     { "provider": "ollama", "model": "nomic-embed-text", "dimensions": 768 },
+  "summarization": { "provider": "ollama", "model": "qwen2.5-coder:14b" },
+  "display":       { "format": "terse" }
+}
+```
 
 ---
 
@@ -537,8 +673,8 @@ Chunk IDs are derived from `sha256(filePath + content)`. If a function's code do
 - **commander** — CLI framework
 - **fast-glob** — repository scanning
 - **tree-sitter** (optional) — AST-based symbol extraction for TS/JS
-- **openai** SDK _(optional)_ — embedding generation and OpenAI LLM provider; install with `npm install openai`
-- **@anthropic-ai/sdk** _(optional)_ — Anthropic/Claude LLM provider; install with `npm install @anthropic-ai/sdk`
+- **openai** SDK _(optional)_ — embedding generation, OpenAI and Gemini LLM provider; `npm install openai`
+- **@anthropic-ai/sdk** _(optional)_ — Anthropic/Claude LLM provider; `npm install @anthropic-ai/sdk`
 - **@xenova/transformers** — local cross-encoder model for `--rerank`
 - **hnsw** — HNSW index for sub-millisecond vector search
 - **chokidar** — file watching for `--watch` mode

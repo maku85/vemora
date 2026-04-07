@@ -70,7 +70,10 @@ export class SummaryStorage {
   }
 
   private writeJson(filePath: string, data: unknown): void {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+    const dir = path.dirname(filePath);
+    fs.mkdirSync(dir, { recursive: true });
+    const tmp = filePath + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(data), "utf-8");
+    fs.renameSync(tmp, filePath);
   }
 }

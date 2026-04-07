@@ -65,7 +65,9 @@ export class UsageStorage {
 
     const dir = path.dirname(this.filePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(this.filePath, JSON.stringify(pruned, null, 2), "utf-8");
+    const tmp = this.filePath + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(pruned), "utf-8");
+    fs.renameSync(tmp, this.filePath);
   }
 
   clear(): void {

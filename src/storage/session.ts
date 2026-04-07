@@ -71,7 +71,9 @@ export class SessionStorage {
   private saveState(state: SessionState): void {
     const dir = path.dirname(this.filePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(this.filePath, JSON.stringify(state, null, 2), "utf-8");
+    const tmp = this.filePath + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(state), "utf-8");
+    fs.renameSync(tmp, this.filePath);
   }
 
   /** Resets the session to a clean state (new session ID, empty seen list). */

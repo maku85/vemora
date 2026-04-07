@@ -102,15 +102,14 @@ export class EmbeddingCacheStorage {
 
     // Save metadata (exclude actual vectors/embeddings)
     const { vectors, embeddings, ...metadata } = cache;
-    fs.writeFileSync(
+    this.writeAtomic(
       this.cachePath,
-      JSON.stringify(metadata, null, 2),
-      "utf-8",
+      Buffer.from(JSON.stringify(metadata), "utf-8"),
     );
 
     // Save binary vectors
     if (vectors) {
-      fs.writeFileSync(
+      this.writeAtomic(
         this.binPath,
         Buffer.from(vectors.buffer, vectors.byteOffset, vectors.byteLength),
       );
@@ -118,8 +117,17 @@ export class EmbeddingCacheStorage {
 
     // Save HNSW index
     if (cache.hnswIndex) {
-      fs.writeFileSync(this.hnswPath, JSON.stringify(cache.hnswIndex), "utf-8");
+      this.writeAtomic(
+        this.hnswPath,
+        Buffer.from(JSON.stringify(cache.hnswIndex), "utf-8"),
+      );
     }
+  }
+
+  private writeAtomic(filePath: string, data: Buffer): void {
+    const tmp = filePath + ".tmp";
+    fs.writeFileSync(tmp, data);
+    fs.renameSync(tmp, filePath);
   }
 
   update(

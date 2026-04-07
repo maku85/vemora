@@ -18,16 +18,17 @@ import chalk from "chalk";
 import { Command } from "commander";
 import path from "path";
 import { runAsk } from "./commands/ask";
-import { runBench } from "./commands/bench";
+import { runAudit } from "./commands/audit";
+import { runFocus } from "./commands/focus";
+import { runPlan } from "./commands/plan";
+import { runTriage } from "./commands/triage";
 import { runChat } from "./commands/chat";
 import { runContext } from "./commands/context";
 import { runDeps } from "./commands/deps";
 import { runIndex } from "./commands/index";
 import { runInit } from "./commands/init";
 import { runInitAgent } from "./commands/init-agent";
-import { runInitClaude } from "./commands/init-claude";
 import { runKnowledgeForget, runKnowledgeList } from "./commands/knowledge";
-import { runOverview } from "./commands/overview";
 import { runQuery } from "./commands/query";
 import { runRemember } from "./commands/remember";
 import { runUsages } from "./commands/usages";
@@ -258,6 +259,62 @@ program
     },
   );
 
+// ── plan ──────────────────────────────────────────────────────────────────────
+
+program
+  .command("plan <task>")
+  .description(
+    "Planner-executor: a pro LLM decomposes the task, a smaller LLM executes each step",
+  )
+  .option("--root <dir>", "project root directory (default: cwd)", "")
+  .option("-k, --top-k <n>", "chunks to retrieve per step (default: 5)", "5")
+  .option("--keyword", "use keyword search (no embeddings required)", false)
+  .option(
+    "--budget <n>",
+    "max context tokens per step (default: 4000)",
+    "4000",
+  )
+  .option("--show-context", "print retrieved context for each step", false)
+  .option(
+    "--confirm",
+    "show the plan and ask for confirmation before executing",
+    false,
+  )
+  .option(
+    "--synthesize",
+    "call the planner again after all steps to produce a single final answer",
+    false,
+  )
+  .action(
+    async (
+      task: string,
+      opts: {
+        root: string;
+        topK: string;
+        keyword: boolean;
+        budget: string;
+        showContext: boolean;
+        confirm: boolean;
+        synthesize: boolean;
+      },
+    ) => {
+      const rootDir = path.resolve(opts.root || process.cwd());
+      try {
+        await runPlan(rootDir, task, {
+          topK: Number.parseInt(opts.topK, 10),
+          keyword: opts.keyword,
+          budget: Number.parseInt(opts.budget, 10),
+          showContext: opts.showContext,
+          confirm: opts.confirm,
+          synthesize: opts.synthesize,
+        });
+      } catch (err) {
+        console.error(chalk.red("Error:"), (err as Error).message);
+        process.exit(1);
+      }
+    },
+  );
+
 // ── chat ──────────────────────────────────────────────────────────────────────
 
 program
@@ -460,6 +517,7 @@ program
     "(re)generate project overview from existing file summaries",
     false,
   )
+  .option("--show", "print the existing project overview without regenerating", false)
   .action(
     async (opts: {
       root: string;
@@ -467,6 +525,7 @@ program
       model?: string;
       filesOnly: boolean;
       projectOnly: boolean;
+      show: boolean;
     }) => {
       const rootDir = path.resolve(opts.root || process.cwd());
       try {
@@ -475,6 +534,7 @@ program
           model: opts.model,
           filesOnly: opts.filesOnly,
           projectOnly: opts.projectOnly,
+          show: opts.show,
         });
       } catch (err) {
         console.error(chalk.red("Error:"), (err as Error).message);
@@ -482,69 +542,6 @@ program
       }
     },
   );
-
-// ── overview ──────────────────────────────────────────────────────────────────
-
-program
-  .command("overview")
-  .description("Print the project overview (from vemora summarize)")
-  .option("--root <dir>", "project root directory (default: cwd)", "")
-  .action(async (opts: { root: string }) => {
-    const rootDir = path.resolve(opts.root || process.cwd());
-    try {
-      await runOverview(rootDir);
-    } catch (err) {
-      console.error(chalk.red("Error:"), (err as Error).message);
-      process.exit(1);
-    }
-  });
-
-// ── bench ─────────────────────────────────────────────────────────────────────
-
-program
-  .command("bench <query>")
-  .description("Compare token usage with and without advanced context tools")
-  .option("--root <dir>", "project root directory (default: cwd)", "")
-  .option("-k, --top-k <n>", "number of results to benchmark (default: 5)", "5")
-  .option("--keyword", "force keyword search", false)
-  .option("--rerank", "use cross-encoder reranking", false)
-  .action(
-    async (
-      query: string,
-      opts: { root: string; topK: string; keyword: boolean; rerank: boolean },
-    ) => {
-      const rootDir = path.resolve(opts.root || process.cwd());
-      try {
-        await runBench(rootDir, query, {
-          topK: parseInt(opts.topK, 10),
-          keyword: opts.keyword,
-          rerank: opts.rerank,
-        });
-      } catch (err) {
-        console.error(chalk.red("Error:"), (err as Error).message);
-        process.exit(1);
-      }
-    },
-  );
-
-// ── init-claude ───────────────────────────────────────────────────────────────
-
-program
-  .command("init-claude")
-  .description(
-    "Generate a CLAUDE.md file for Claude Code from the vemora index",
-  )
-  .option("--root <dir>", "project root directory (default: cwd)", "")
-  .option("--force", "overwrite existing CLAUDE.md", false)
-  .action(async (opts: { root: string; force: boolean }) => {
-    const rootDir = path.resolve(opts.root || process.cwd());
-    try {
-      await runInitClaude(rootDir, { force: opts.force });
-    } catch (err) {
-      console.error(chalk.red("Error:"), (err as Error).message);
-      process.exit(1);
-    }
-  });
 
 // ── init-agent ────────────────────────────────────────────────────────────────
 
@@ -753,6 +750,202 @@ program
           verbose: opts.verbose,
           clear: opts.clear,
         });
+      } catch (err) {
+        console.error(chalk.red("Error:"), (err as Error).message);
+        process.exit(1);
+      }
+    },
+  );
+
+// ── audit ─────────────────────────────────────────────────────────────────────
+
+program
+  .command("audit")
+  .description(
+    "Systematic code audit for security vulnerabilities, performance issues, and bugs",
+  )
+  .option("--root <dir>", "project root directory (default: cwd)", "")
+  .option(
+    "--type <types>",
+    "comma-separated audit types: security, performance, bugs (default: all)",
+  )
+  .option(
+    "--since <ref>",
+    "only audit files changed since this git ref (e.g. HEAD~5, main)",
+  )
+  .option(
+    "--budget <n>",
+    "max context tokens per step (default: 5000)",
+    "5000",
+  )
+  .option("--keyword", "use keyword search (no embeddings required)", false)
+  .option(
+    "--output <fmt>",
+    "output format: terminal (default), json, markdown",
+    "terminal",
+  )
+  .option(
+    "--save",
+    "save critical/high findings as knowledge entries",
+    false,
+  )
+  .action(
+    async (opts: {
+      root: string;
+      type?: string;
+      since?: string;
+      budget: string;
+      keyword: boolean;
+      output: string;
+      save: boolean;
+    }) => {
+      const rootDir = path.resolve(opts.root || process.cwd());
+
+      const validTypes = ["security", "performance", "bugs"] as const;
+      type AuditType = (typeof validTypes)[number];
+
+      let types: AuditType[] | undefined;
+      if (opts.type) {
+        const requested = opts.type.split(",").map((t) => t.trim()) as AuditType[];
+        const invalid = requested.filter((t) => !validTypes.includes(t));
+        if (invalid.length > 0) {
+          console.error(
+            chalk.red(
+              `Unknown audit type(s): ${invalid.join(", ")}. Valid: security, performance, bugs`,
+            ),
+          );
+          process.exit(1);
+        }
+        types = requested;
+      }
+
+      const outputFmt = opts.output as "terminal" | "json" | "markdown";
+      if (!["terminal", "json", "markdown"].includes(outputFmt)) {
+        console.error(
+          chalk.red(`Unknown output format "${opts.output}". Use: terminal, json, markdown`),
+        );
+        process.exit(1);
+      }
+
+      try {
+        await runAudit(rootDir, {
+          types,
+          since: opts.since,
+          budget: Number.parseInt(opts.budget, 10),
+          keyword: opts.keyword,
+          output: outputFmt,
+          save: opts.save,
+        });
+      } catch (err) {
+        console.error(chalk.red("Error:"), (err as Error).message);
+        process.exit(1);
+      }
+    },
+  );
+
+// ── triage ────────────────────────────────────────────────────────────────────
+
+program
+  .command("triage")
+  .description(
+    "Static heuristic scan for bugs, security issues, and performance problems — no LLM required",
+  )
+  .option("--root <dir>", "project root directory (default: cwd)", "")
+  .option(
+    "--type <types>",
+    "comma-separated types: bugs, security, performance (default: all)",
+  )
+  .option(
+    "-k, --top-k <n>",
+    "max findings to return, ranked by score (default: 30)",
+    "30",
+  )
+  .option(
+    "--min-score <n>",
+    "skip findings below this score threshold (default: 1)",
+    "1",
+  )
+  .option("--file <path>", "restrict scan to files matching this substring")
+  .option(
+    "--output <fmt>",
+    "output format: terminal (default), json, markdown",
+    "terminal",
+  )
+  .action(
+    async (opts: {
+      root: string;
+      type?: string;
+      topK: string;
+      minScore: string;
+      file?: string;
+      output: string;
+    }) => {
+      const rootDir = path.resolve(opts.root || process.cwd());
+
+      const validTypes = ["bugs", "security", "performance"] as const;
+      type TriageType = (typeof validTypes)[number];
+
+      let types: TriageType[] | undefined;
+      if (opts.type) {
+        const requested = opts.type.split(",").map((t) => t.trim()) as TriageType[];
+        const invalid = requested.filter((t) => !validTypes.includes(t));
+        if (invalid.length > 0) {
+          console.error(
+            chalk.red(
+              `Unknown type(s): ${invalid.join(", ")}. Valid: bugs, security, performance`,
+            ),
+          );
+          process.exit(1);
+        }
+        types = requested;
+      }
+
+      const outputFmt = opts.output as "terminal" | "json" | "markdown";
+      if (!["terminal", "json", "markdown"].includes(outputFmt)) {
+        console.error(
+          chalk.red(`Unknown output format "${opts.output}". Use: terminal, json, markdown`),
+        );
+        process.exit(1);
+      }
+
+      try {
+        await runTriage(rootDir, {
+          types,
+          topK: Number.parseInt(opts.topK, 10),
+          minScore: Number.parseInt(opts.minScore, 10),
+          file: opts.file,
+          output: outputFmt,
+        });
+      } catch (err) {
+        console.error(chalk.red("Error:"), (err as Error).message);
+        process.exit(1);
+      }
+    },
+  );
+
+// ── focus ─────────────────────────────────────────────────────────────────────
+
+program
+  .command("focus <target>")
+  .description(
+    "Show implementation, dependencies, callers, tests and knowledge for a file or symbol",
+  )
+  .option("--root <dir>", "project root directory (default: cwd)", "")
+  .option(
+    "--format <fmt>",
+    "output format: markdown (default), plain",
+    "markdown",
+  )
+  .action(
+    async (target: string, opts: { root: string; format: string }) => {
+      const rootDir = path.resolve(opts.root || process.cwd());
+      const fmt = opts.format as "markdown" | "plain";
+      if (!["markdown", "plain"].includes(fmt)) {
+        console.error(chalk.red(`Unknown format "${fmt}". Use: markdown, plain`));
+        process.exit(1);
+      }
+      try {
+        await runFocus(rootDir, target, { format: fmt });
       } catch (err) {
         console.error(chalk.red("Error:"), (err as Error).message);
         process.exit(1);

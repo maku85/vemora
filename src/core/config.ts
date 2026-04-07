@@ -123,7 +123,14 @@ export function loadConfig(rootDir: string): AiMemoryConfig {
     );
   }
   const raw = fs.readFileSync(configPath, "utf-8");
-  const config = JSON.parse(raw) as AiMemoryConfig;
+  let config: AiMemoryConfig;
+  try {
+    config = JSON.parse(raw) as AiMemoryConfig;
+  } catch {
+    throw new Error(
+      `${AI_MEMORY_DIR}/config.json is not valid JSON.\nFix the file manually or run 'vemora init --force' to reset it.`,
+    );
+  }
   // rootDir is injected at load time (not stored in config) so it always reflects
   // the actual filesystem location, even if the project was moved.
   config.rootDir = rootDir;

@@ -28,6 +28,11 @@ export interface AiMemoryConfig {
   embedding: EmbeddingConfig;
   /** Configuration for LLM-based summarization (vemora summarize) */
   summarization?: SummarizationConfig;
+  /**
+   * LLM used as planner in the planner-executor pattern (vemora plan).
+   * Typically a more capable/expensive model. Falls back to summarization if omitted.
+   */
+  planner?: SummarizationConfig;
   /** Output display preferences */
   display?: DisplayConfig;
   /** Human-readable description of where the local cache lives */
@@ -35,10 +40,10 @@ export interface AiMemoryConfig {
 }
 
 export interface SummarizationConfig {
-  provider: "openai" | "anthropic" | "ollama";
+  provider: "openai" | "anthropic" | "ollama" | "gemini";
   /** Chat completion model (default: gpt-4o-mini) */
   model: string;
-  /** API key. Defaults to OPENAI_API_KEY / ANTHROPIC_API_KEY env vars. */
+  /** API key. Defaults to OPENAI_API_KEY / ANTHROPIC_API_KEY / GEMINI_API_KEY env vars. */
   apiKey?: string;
   /** Base URL for OpenAI-compatible or Ollama APIs */
   baseUrl?: string;

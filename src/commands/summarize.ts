@@ -17,6 +17,8 @@ export interface SummarizeOptions {
   filesOnly?: boolean;
   /** Only (re)generate the project overview from existing file summaries */
   projectOnly?: boolean;
+  /** Print the existing project overview without regenerating anything */
+  show?: boolean;
 }
 
 // ─── Prompts ──────────────────────────────────────────────────────────────────
@@ -62,6 +64,19 @@ export async function runSummarize(
   rootDir: string,
   options: SummarizeOptions = {},
 ): Promise<void> {
+  if (options.show) {
+    const summaryStorage = new SummaryStorage(rootDir);
+    const projectSummary = summaryStorage.loadProjectSummary();
+    if (!projectSummary) {
+      console.log(chalk.yellow("No project overview found. Run `vemora summarize` first."));
+      process.exit(1);
+    }
+    console.log(projectSummary.overview);
+    console.log();
+    console.log(chalk.gray(`Generated: ${projectSummary.generatedAt}`));
+    return;
+  }
+
   const config = loadConfig(rootDir);
   const repo = new RepositoryStorage(rootDir);
   const summaryStorage = new SummaryStorage(rootDir);
@@ -250,7 +265,7 @@ export async function runSummarize(
       console.log("  " + chalk.gray(line));
     }
     if (overview.split("\n").length > 5) {
-      console.log(chalk.gray("  … (use `vemora overview` to read in full)"));
+      console.log(chalk.gray("  … (use `vemora summarize --show` to read in full)"));
     }
   } catch (err) {
     overviewSpinner.fail(`Project overview failed: ${(err as Error).message}`);

@@ -22,7 +22,7 @@ import {
   loadTsPathAliases,
   updateDependencyGraph,
 } from "../indexer/deps";
-import { hashFile } from "../indexer/hasher";
+import { hashBuffer, hashFile } from "../indexer/hasher";
 import { buildSymbolIndex, parseSymbols } from "../indexer/parser";
 import { scanRepository } from "../indexer/scanner";
 import { extractTodos } from "../indexer/todos";
@@ -214,7 +214,7 @@ async function performIndexIteration(
           try {
             if (!fs.existsSync(absolutePath)) return;
             const content = fs.readFileSync(absolutePath, "utf-8");
-            const hash = hashFile(absolutePath);
+            const hash = hashBuffer(content); // avoids re-reading the file
             const stats = fs.statSync(absolutePath);
 
             const symbols = parseSymbols(relativePath, content);

@@ -29,11 +29,9 @@ export class KnowledgeStorage {
 
   save(entries: KnowledgeEntry[]): void {
     fs.mkdirSync(this.knowledgeDir, { recursive: true });
-    fs.writeFileSync(
-      this.entriesPath,
-      JSON.stringify(entries, null, 2),
-      "utf-8",
-    );
+    const tmp = this.entriesPath + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(entries), "utf-8");
+    fs.renameSync(tmp, this.entriesPath);
   }
 
   add(entry: KnowledgeEntry): void {

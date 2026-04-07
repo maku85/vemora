@@ -11,6 +11,14 @@ export function hashFile(filePath: string): string {
 }
 
 /**
+ * Same hash as hashFile but computed from already-read content.
+ * Use this when the file has already been read to avoid a redundant I/O call.
+ */
+export function hashBuffer(content: Buffer | string): string {
+  return crypto.createHash("sha256").update(content).digest("hex");
+}
+
+/**
  * Computes a short content-based hash for a chunk.
  * Using content (not path+line) means embeddings are reusable across branches
  * when the actual code hasn't changed, even if surrounding lines shifted.
