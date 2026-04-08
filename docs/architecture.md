@@ -432,6 +432,14 @@ Implementations: `OpenAIEmbeddingProvider`, `OllamaEmbeddingProvider`, `NoopEmbe
 
 Selected via `createEmbeddingProvider(config.embedding)` in `src/embeddings/factory.ts`.
 
+#### OllamaEmbeddingProvider — context window truncation
+
+Ollama models have a fixed context window. `OllamaEmbeddingProvider` truncates each text to `maxChars` characters before sending to avoid `500` errors:
+
+- Default: **3800 chars** (safe for `nomic-embed-text`, context = 2048 tokens ≈ 4050 chars empirically)
+- Configurable via `embedding.maxChars` in `.vemora/config.json`
+- Increase for models with a larger context window (e.g. `mxbai-embed-large`)
+
 Chunks are embedded with a prefix that encodes location metadata:
 ```
 file: src/imap/client.ts

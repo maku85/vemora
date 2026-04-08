@@ -628,8 +628,26 @@ Sets the default output format for `query`, `context`, and `ask`. Set to `"terse
 | Provider | Config | Notes |
 |---|---|---|
 | `openai` | `OPENAI_API_KEY` env or `apiKey` in config | Best quality. Requires `npm install openai`. |
-| `ollama` | `baseUrl` (default: `http://localhost:11434`) | Local, no cost. |
+| `ollama` | `baseUrl`, `maxChars` (see below) | Local, no cost. |
 | `none` | — | Keyword search only, no embeddings. |
+
+#### Ollama embedding options
+
+| Field | Default | Description |
+|---|---|---|
+| `model` | `"nomic-embed-text"` | Embedding model to pull and use |
+| `dimensions` | `768` | Must match the model output dimensions |
+| `baseUrl` | `"http://localhost:11434"` | Ollama server URL |
+| `maxChars` | `3800` | Max characters per chunk before truncation. Prevents exceeding the model's context window. Increase for models with larger context (e.g. `mxbai-embed-large`: ~8000). |
+
+```json
+"embedding": {
+  "provider": "ollama",
+  "model": "nomic-embed-text",
+  "dimensions": 768,
+  "maxChars": 3800
+}
+```
 
 ### LLM providers
 

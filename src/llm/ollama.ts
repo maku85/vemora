@@ -18,7 +18,7 @@ export class OllamaProvider implements LLMProvider {
     options: ChatOptions = {},
   ): Promise<LLMResponse> {
     const stream = options.stream || !!options.onToken;
-    const model = options.model || "llama3";
+    const model = options.model;
 
     const response = await fetch(`${this.baseUrl}/api/chat`, {
       method: "POST",

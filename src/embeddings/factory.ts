@@ -25,6 +25,7 @@ export function createEmbeddingProvider(
         config.model,
         config.baseUrl,
         config.dimensions,
+        config.maxChars,
       );
 
     case "none":

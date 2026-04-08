@@ -76,6 +76,12 @@ export interface EmbeddingConfig {
   apiKey?: string;
   /** Base URL for Ollama. Defaults to http://localhost:11434 */
   baseUrl?: string;
+  /**
+   * Max characters per text before truncation (Ollama only).
+   * Prevents exceeding the model's context window.
+   * Defaults to 3800 (safe for nomic-embed-text with 2048-token context).
+   */
+  maxChars?: number;
 }
 
 // ─── Repository Index (versioned in git) ─────────────────────────────────────

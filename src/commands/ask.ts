@@ -180,6 +180,7 @@ export async function runAsk(
         { role: "user", content: question },
       ],
       {
+        model: llmConfig.model,
         stream: true,
         onToken: (token: string) => {
           process.stdout.write(token);
