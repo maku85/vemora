@@ -97,7 +97,7 @@ export async function runInit(rootDir: string): Promise<void> {
     `  1. Review ${chalk.cyan(".vemora/config.json")} — adjust include/exclude patterns`,
   );
   console.log(
-    `  2. Configure embedding provider (default: OpenAI via ${chalk.cyan("OPENAI_API_KEY")} env)`,
+    `  2. Review embedding and LLM provider in ${chalk.cyan(".vemora/config.json")} (default: Ollama)`,
   );
   console.log(`  3. Run ${chalk.cyan("vemora index")} to build the index`);
   console.log(

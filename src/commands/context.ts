@@ -200,7 +200,7 @@ export async function runContext(
 
     // ── Reranking (optional) ──────────────────────────────────────────────
     if (options.rerank && results.length > 0) {
-      results = await rerankResults(options.query, results, topK);
+      results = await rerankResults(options.query, results, topK, config.reranker, config.summarization?.model);
     }
 
     // ── MMR deduplication (optional) ─────────────────────────────────────

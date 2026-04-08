@@ -450,7 +450,7 @@ Summaries are used by `vemora plan` and `vemora audit` as cheap planner context 
 Options:
   --root <dir>       project root (default: cwd)
   --force            re-generate all summaries
-  --model <name>     override LLM model (default: gpt-4o-mini)
+  --model <name>     override LLM model (default: from config)
   --files-only       only generate per-file summaries
   --project-only     (re)generate project overview from existing file summaries
   --show             print the existing project overview without regenerating
@@ -581,13 +581,17 @@ Edit `.vemora/config.json` after `init`:
   "maxChunkLines": 80,
   "maxChunkChars": 3000,
   "embedding": {
-    "provider": "openai",
-    "model": "text-embedding-3-small",
-    "dimensions": 1536
+    "provider": "ollama",
+    "model": "nomic-embed-text",
+    "dimensions": 768
   },
   "summarization": {
-    "provider": "openai",
-    "model": "gpt-4o-mini"
+    "provider": "ollama",
+    "model": "gemma4:e4b",
+    "baseUrl": "http://localhost:11434"
+  },
+  "reranker": {
+    "provider": "ollama"
   },
   "display": {
     "format": "terse"
@@ -652,6 +656,24 @@ The `openai` provider accepts a `baseUrl` field, enabling any compatible API:
 | OpenRouter | `https://openrouter.ai/api/v1` | Some free models |
 | Gemini (compat) | `https://generativelanguage.googleapis.com/v1beta/openai/` | Yes |
 
+### Reranker
+
+Controls how search results are re-scored when `--rerank` is passed to `query`, `context`, or `ask`, and always in `chat`.
+
+| Provider | Config | Notes |
+|---|---|---|
+| `xenova` | _(no extra config)_ | Local cross-encoder (`ms-marco-MiniLM-L-6-v2`). Best quality. Requires `npm install @xenova/transformers`. |
+| `ollama` | `model` (optional), `baseUrl` (optional) | Uses the configured LLM to rank results in a single call. No extra dependency. |
+| `none` | — | Skip reranking entirely. |
+
+```json
+{
+  "reranker": { "provider": "ollama" }
+}
+```
+
+When `provider` is `ollama` and `model` is omitted, the model from `summarization` is used.
+
 ### Recommended configurations
 
 **Maximum quality (cloud)**
@@ -674,10 +696,13 @@ The `openai` provider accepts a `baseUrl` field, enabling any compatible API:
 ```json
 {
   "embedding":     { "provider": "ollama", "model": "nomic-embed-text", "dimensions": 768 },
-  "summarization": { "provider": "ollama", "model": "qwen2.5-coder:14b" },
+  "summarization": { "provider": "ollama", "model": "gemma4:e4b" },
+  "reranker":      { "provider": "ollama" },
   "display":       { "format": "terse" }
 }
 ```
+
+Other local models that work well: `qwen2.5-coder:14b`, `llama3.2`, `mistral`.
 
 ---
 
@@ -710,7 +735,7 @@ Chunk IDs are derived from `sha256(filePath + content)`. If a function's code do
 - **tree-sitter** (optional) — AST-based symbol extraction for TS/JS
 - **openai** SDK _(optional)_ — embedding generation, OpenAI and Gemini LLM provider; `npm install openai`
 - **@anthropic-ai/sdk** _(optional)_ — Anthropic/Claude LLM provider; `npm install @anthropic-ai/sdk`
-- **@xenova/transformers** — local cross-encoder model for `--rerank`
+- **@xenova/transformers** _(optional)_ — local cross-encoder model for `--rerank` with `reranker.provider = "xenova"`; `npm install @xenova/transformers`. Not needed if using `reranker.provider = "ollama"` or `"none"`.
 - **hnsw** — HNSW index for sub-millisecond vector search
 - **chokidar** — file watching for `--watch` mode
 - **chalk + ora** — terminal output

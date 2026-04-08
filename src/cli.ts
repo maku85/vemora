@@ -507,7 +507,7 @@ program
     "re-generate all summaries, ignoring content hashes",
     false,
   )
-  .option("--model <name>", "override LLM model (default: gpt-4o-mini)")
+  .option("--model <name>", "override LLM model (default: from config)")
   .option(
     "--files-only",
     "only generate per-file summaries, skip project overview",

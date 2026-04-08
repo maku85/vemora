@@ -161,7 +161,7 @@ export async function runAsk(
 
   const llmConfig: SummarizationConfig = {
     ...config.summarization,
-    model: config.summarization.model ?? "gpt-4o-mini",
+    model: config.summarization.model,
   };
 
   const llm = createLLMProvider(llmConfig);

@@ -46,16 +46,11 @@ export async function runChat(
     : {};
   const projectSummary = summaryStorage.loadProjectSummary();
 
-  // Use the provider from CLI options, then from config, then default to openai
-  const providerType = (options.provider ||
-    config.summarization?.provider ||
-    "openai") as SummarizationConfig["provider"];
   const llmConfig: SummarizationConfig = {
-    ...(config.summarization || {}),
-    provider: providerType,
-    model: config.summarization?.model ?? "gpt-4o-mini",
+    ...(config.summarization ?? { provider: "ollama" as const, model: "gemma4:e4b", baseUrl: "http://localhost:11434" }),
+    ...(options.provider ? { provider: options.provider as SummarizationConfig["provider"] } : {}),
+    ...(options.model ? { model: options.model } : {}),
   };
-  if (options.model) llmConfig.model = options.model;
 
   const llm = createLLMProvider(llmConfig);
   const history: ChatMessage[] = [];
@@ -120,7 +115,7 @@ export async function runChat(
           );
 
           // Always rerank for chat to ensure best quality
-          results = await rerankResults(input, results, options.topK || 5);
+          results = await rerankResults(input, results, options.topK || 5, config.reranker, config.summarization?.model);
         } else {
           results = computeBM25Scores(
             input,
@@ -177,7 +172,7 @@ If the information is not in the context, be honest about it.`;
       process.stdout.write(`\n${chalk.green.bold("AI >")} `);
 
       await llm.chat(currentMessages, {
-        model: options.model || config.summarization?.model || "gpt-4o-mini",
+        model: llmConfig.model,
         onToken: (token) => {
           if (llmSpinner.isSpinning) {
             llmSpinner.stop();

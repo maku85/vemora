@@ -211,7 +211,7 @@ export async function runQuery(
     if (fmt === "terminal") {
       console.log(chalk.gray(`Reranking top ${results.length} results...`));
     }
-    results = await rerankResults(question, results, topK);
+    results = await rerankResults(question, results, topK, config.reranker, config.summarization?.model);
   }
 
   // ── MMR deduplication (optional) ───────────────────────────────────────────

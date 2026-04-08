@@ -9,6 +9,19 @@ export interface DisplayConfig {
   format?: "terse" | "markdown";
 }
 
+export interface RerankConfig {
+  /**
+   * "xenova" — local cross-encoder via @xenova/transformers (default, best quality)
+   * "ollama" — LLM-based reranking via Ollama (no extra dependency)
+   * "none"   — skip reranking entirely
+   */
+  provider: "xenova" | "ollama" | "none";
+  /** Ollama only: model to use. Falls back to summarization.model if omitted. */
+  model?: string;
+  /** Ollama only: base URL. Defaults to http://localhost:11434 */
+  baseUrl?: string;
+}
+
 export interface AiMemoryConfig {
   /** Deterministic project ID derived from root directory path */
   projectId: string;
@@ -33,6 +46,11 @@ export interface AiMemoryConfig {
    * Typically a more capable/expensive model. Falls back to summarization if omitted.
    */
   planner?: SummarizationConfig;
+  /**
+   * Search result reranker. Defaults to "xenova" (local cross-encoder).
+   * Set to "ollama" to use the local LLM instead of @xenova/transformers.
+   */
+  reranker?: RerankConfig;
   /** Output display preferences */
   display?: DisplayConfig;
   /** Human-readable description of where the local cache lives */

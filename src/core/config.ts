@@ -101,13 +101,14 @@ export function getDefaultConfig(
     maxChunkLines: 80,
     maxChunkChars: 3000,
     embedding: {
-      provider: "openai",
-      model: "text-embedding-3-small",
-      dimensions: 1536,
+      provider: "ollama",
+      model: "nomic-embed-text",
+      dimensions: 768,
     },
     summarization: {
-      provider: "openai",
-      model: "gpt-4o-mini",
+      provider: "ollama",
+      model: "gemma4:e4b",
+      baseUrl: "http://localhost:11434",
     },
     cacheDir: "~/.vemora-cache/<projectId>",
   };

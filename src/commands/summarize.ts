@@ -1,10 +1,10 @@
 import chalk from "chalk";
 import fs from "fs";
-import OpenAI from "openai";
 import ora from "ora";
 import path from "path";
 import { loadConfig } from "../core/config";
 import type { FileSummaryIndex, ProjectSummary } from "../core/types";
+import { createLLMProvider } from "../llm/factory";
 import { RepositoryStorage } from "../storage/repository";
 import { SummaryStorage } from "../storage/summaries";
 
@@ -81,21 +81,13 @@ export async function runSummarize(
   const repo = new RepositoryStorage(rootDir);
   const summaryStorage = new SummaryStorage(rootDir);
 
-  // ── Resolve API settings ────────────────────────────────────────────────────
-  const model = options.model ?? config.summarization?.model ?? "gpt-4o-mini";
-  const apiKey = config.summarization?.apiKey ?? process.env.OPENAI_API_KEY;
-  const baseUrl = config.summarization?.baseUrl;
-
-  if (!apiKey) {
-    throw new Error(
-      "No API key found. Set OPENAI_API_KEY env var or add summarization.apiKey to .vemora/config.json",
-    );
-  }
-
-  const openai = new OpenAI({
-    apiKey,
-    ...(baseUrl ? { baseURL: baseUrl } : {}),
-  });
+  // ── Resolve LLM provider ────────────────────────────────────────────────────
+  const summarizationConfig = {
+    ...(config.summarization ?? { provider: "ollama" as const, model: "gemma4:e4b", baseUrl: "http://localhost:11434" }),
+    ...(options.model ? { model: options.model } : {}),
+  };
+  const model = summarizationConfig.model;
+  const llm = createLLMProvider(summarizationConfig);
 
   // ── File summaries ──────────────────────────────────────────────────────────
 
@@ -152,19 +144,12 @@ export async function runSummarize(
 
           const fileSymbols = entry.symbols ?? [];
 
-          const response = await openai.chat.completions.create({
-            model,
-            messages: [
-              {
-                role: "user",
-                content: fileSummaryPrompt(relPath, fileSymbols, content),
-              },
-            ],
-            max_tokens: 250,
-            temperature: 0,
-          });
+          const response = await llm.chat(
+            [{ role: "user", content: fileSummaryPrompt(relPath, fileSymbols, content) }],
+            { model, maxTokens: 250, temperature: 0 },
+          );
 
-          const summary = response.choices[0]?.message?.content?.trim() ?? "";
+          const summary = response.content.trim();
 
           updated[relPath] = {
             summary,
@@ -233,19 +218,12 @@ export async function runSummarize(
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model,
-      messages: [
-        {
-          role: "user",
-          content: projectOverviewPrompt(config.projectName, summaryBlock),
-        },
-      ],
-      max_tokens: 750,
-      temperature: 0.1,
-    });
+    const response = await llm.chat(
+      [{ role: "user", content: projectOverviewPrompt(config.projectName, summaryBlock) }],
+      { model, maxTokens: 750, temperature: 0.1 },
+    );
 
-    const overview = response.choices[0]?.message?.content?.trim() ?? "";
+    const overview = response.content.trim();
 
     const projectSummary: ProjectSummary = {
       overview,
