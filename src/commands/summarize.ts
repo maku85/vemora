@@ -83,7 +83,7 @@ export async function runSummarize(
 
   // ── Resolve LLM provider ────────────────────────────────────────────────────
   const summarizationConfig = {
-    ...(config.summarization ?? { provider: "ollama" as const, model: "gemma4:e4b", baseUrl: "http://localhost:11434" }),
+    ...(config.summarization ?? { provider: "ollama" as const, model: "gemma4:e2b", baseUrl: "http://localhost:11434" }),
     ...(options.model ? { model: options.model } : {}),
   };
   const model = summarizationConfig.model;

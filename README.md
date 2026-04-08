@@ -587,7 +587,7 @@ Edit `.vemora/config.json` after `init`:
   },
   "summarization": {
     "provider": "ollama",
-    "model": "gemma4:e4b",
+    "model": "gemma4:e2b",
     "baseUrl": "http://localhost:11434"
   },
   "reranker": {
@@ -714,7 +714,7 @@ When `provider` is `ollama` and `model` is omitted, the model from `summarizatio
 ```json
 {
   "embedding":     { "provider": "ollama", "model": "nomic-embed-text", "dimensions": 768 },
-  "summarization": { "provider": "ollama", "model": "gemma4:e4b" },
+  "summarization": { "provider": "ollama", "model": "gemma4:e2b" },
   "reranker":      { "provider": "ollama" },
   "display":       { "format": "terse" }
 }

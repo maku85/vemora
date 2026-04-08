@@ -47,7 +47,7 @@ export async function runChat(
   const projectSummary = summaryStorage.loadProjectSummary();
 
   const llmConfig: SummarizationConfig = {
-    ...(config.summarization ?? { provider: "ollama" as const, model: "gemma4:e4b", baseUrl: "http://localhost:11434" }),
+    ...(config.summarization ?? { provider: "ollama" as const, model: "gemma4:e2b", baseUrl: "http://localhost:11434" }),
     ...(options.provider ? { provider: options.provider as SummarizationConfig["provider"] } : {}),
     ...(options.model ? { model: options.model } : {}),
   };

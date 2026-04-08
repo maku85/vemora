@@ -107,7 +107,7 @@ export function getDefaultConfig(
     },
     summarization: {
       provider: "ollama",
-      model: "gemma4:e4b",
+      model: "gemma4:e2b",
       baseUrl: "http://localhost:11434",
     },
     cacheDir: "~/.vemora-cache/<projectId>",
