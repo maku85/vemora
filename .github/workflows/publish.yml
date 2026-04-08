@@ -23,6 +23,13 @@ jobs:
         run: npm run build
 
       - name: Publish
-        run: npm publish
+        run: |
+          if [[ "${{ github.ref_name }}" == *"-alpha"* ]]; then
+            npm publish --tag alpha
+          elif [[ "${{ github.ref_name }}" == *"-beta"* ]]; then
+            npm publish --tag beta
+          else
+            npm publish
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
