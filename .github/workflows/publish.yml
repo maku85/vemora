@@ -16,20 +16,24 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: npm run build
+        run: pnpm run build
 
       - name: Publish
         run: |
           if [[ "${{ github.ref_name }}" == *"-alpha"* ]]; then
-            npm publish --tag alpha
+            pnpm publish --tag alpha --no-git-checks
           elif [[ "${{ github.ref_name }}" == *"-beta"* ]]; then
-            npm publish --tag beta
+            pnpm publish --tag beta --no-git-checks
           else
-            npm publish
+            pnpm publish --no-git-checks
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
