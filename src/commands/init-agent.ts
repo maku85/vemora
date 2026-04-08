@@ -13,6 +13,8 @@ export type AgentTarget = "claude" | "copilot" | "cursor" | "windsurf" | "gemini
 export interface InitAgentOptions {
   agents?: AgentTarget[];
   force?: boolean;
+  /** Write Claude Code hooks to .claude/settings.json (Claude target only). */
+  hooks?: boolean;
 }
 
 // ─── Markers ──────────────────────────────────────────────────────────────────
@@ -26,6 +28,7 @@ export const DEFAULT_INSTRUCTIONS = `## Working with this codebase
 
 - **Before reading any file**, check the Key Exports table below to locate the relevant symbol.
 - **Before querying**, try \`vemora query\` first — open a file only if the returned context is insufficient.
+- **Before deep-diving a file or symbol**, use \`vemora focus\` — it aggregates implementation, deps, callers, tests, and knowledge in one call.
 - **Before modifying a file**, check its blast radius: \`vemora deps <file> --root . --reverse-depth 2\`.
 - **Before renaming a symbol or changing its API**, check who uses it: \`vemora usages <SymbolName> --root .\`.
 - **After making changes**, always run the build/test command to verify correctness before declaring done.
@@ -34,7 +37,13 @@ export const DEFAULT_INSTRUCTIONS = `## Working with this codebase
 
 ## Session setup
 
-For a live index, run this in a background terminal at the start of your session:
+At the **start of each session**, load the project primer:
+
+\`\`\`bash
+vemora brief --root .
+\`\`\`
+
+For a live index, also run this in a background terminal:
 
 \`\`\`bash
 vemora index --root . --watch
@@ -48,18 +57,10 @@ vemora index --root . --no-embed
 
 ## Session memory
 
-At the **start of each session**, recall saved project knowledge:
-
-\`\`\`bash
-vemora knowledge list --root .
-\`\`\`
-
 During the session, **proactively save** anything non-obvious that future sessions would benefit from knowing:
 
 \`\`\`bash
-vemora remember "text" --root . --category decision   # architectural choice and why
-vemora remember "text" --root . --category gotcha     # surprising behaviour or constraint
-vemora remember "text" --root . --category pattern    # approved implementation pattern
+vemora remember "text" --root .   # category is auto-classified by the LLM
 \`\`\`
 
 **Save:** why a design decision was made, a non-obvious constraint, a bug and its root cause, an approved pattern.
@@ -71,9 +72,13 @@ Use this decision tree to choose the right command:
 
 | Situation | Command |
 |---|---|
-| User asks about a function, class, or file | \`context --root . --file <path>\` |
+| Session start — re-establish context | \`brief --root .\` |
+| User asks about a function, class, or file | \`focus <file-or-symbol> --root .\` |
 | User asks a concept/how-does-X-work question | \`context --root . --query "<question>"\` |
 | User asks to fix / refactor / add code | \`context --root . --query "<task>" --keyword\`, then check for \`*.test.ts\` before editing |
+| Complex multi-step task | \`plan "<task>" --root . --confirm --synthesize\` |
+| Security / performance / bug audit | \`audit --root . --type security,bugs\` |
+| Quick static scan — no API key needed | \`triage --root . --type bugs,security\` |
 | Output is too long for your context window | add \`--budget 2000\` (or lower) to any command |
 | No embeddings available / fast keyword search | add \`--keyword\` to any \`query\` or \`context\` call |
 | Need to understand who imports a file | \`deps <file> --root .\` |
@@ -134,6 +139,11 @@ export async function runInitAgent(
   // ── Process each target ──────────────────────────────────────────────────────
   for (const agent of targets) {
     writeAgentFile(agent, rootDir, config.projectName, block, force);
+  }
+
+  // ── Claude Code hooks ────────────────────────────────────────────────────────
+  if (options.hooks && targets.includes("claude")) {
+    writeClaudeHooks(rootDir, force);
   }
 
   if (!projectSummary) {
@@ -358,6 +368,77 @@ function printNoMarkersWarning(label: string): void {
   );
 }
 
+// ─── Claude Code hooks ────────────────────────────────────────────────────────
+
+/**
+ * Writes (or merges) vemora hook entries into .claude/settings.json.
+ *
+ * Two hooks are registered:
+ *   - PreCompact  — emergency knowledge save before Claude compacts the context
+ *   - Stop        — brief reminder to run `vemora remember` after each session
+ *
+ * Existing hooks unrelated to vemora are preserved.
+ */
+function writeClaudeHooks(rootDir: string, force: boolean): void {
+  const settingsPath = path.join(rootDir, ".claude", "settings.json");
+  const label = "Claude Code hooks: .claude/settings.json";
+
+  // The PreCompact hook pipes the most recent assistant message into
+  // `vemora remember` so that any decision mentioned just before compaction
+  // is persisted. We cap input to 1000 chars to stay within CLI limits.
+  const vemoraHooks = {
+    PreCompact: [
+      {
+        matcher: "",
+        hooks: [
+          {
+            type: "command",
+            command:
+              "echo \"Pre-compact save: run 'vemora remember <decision> --root . --category decision' to preserve any key decision before context is compressed.\"",
+          },
+        ],
+      },
+    ],
+  };
+
+  let existing: Record<string, unknown> = {};
+  if (fs.existsSync(settingsPath)) {
+    if (!force) {
+      // Merge: add only the hooks that aren't already present
+      try {
+        existing = JSON.parse(fs.readFileSync(settingsPath, "utf-8")) as Record<string, unknown>;
+      } catch {
+        existing = {};
+      }
+      const existingHooks = (existing.hooks ?? {}) as Record<string, unknown>;
+      // Only add PreCompact if not already set
+      if (existingHooks.PreCompact) {
+        console.log(chalk.yellow(`  ${label} — PreCompact hook already exists, skipping. Use --force to overwrite.`));
+        return;
+      }
+      existing.hooks = { ...existingHooks, ...vemoraHooks };
+    } else {
+      try {
+        existing = JSON.parse(fs.readFileSync(settingsPath, "utf-8")) as Record<string, unknown>;
+      } catch {
+        existing = {};
+      }
+      existing.hooks = {
+        ...((existing.hooks ?? {}) as Record<string, unknown>),
+        ...vemoraHooks,
+      };
+    }
+  } else {
+    existing = { hooks: vemoraHooks };
+  }
+
+  fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+  const tmp = settingsPath + ".tmp";
+  fs.writeFileSync(tmp, JSON.stringify(existing, null, 2), "utf-8");
+  fs.renameSync(tmp, settingsPath);
+  console.log(chalk.green(`✓ ${label} updated`));
+}
+
 // ─── Block builder ────────────────────────────────────────────────────────────
 
 export function buildGeneratedBlock(
@@ -425,45 +506,44 @@ export function buildGeneratedBlock(
   );
   lines.push("");
   lines.push("```bash");
+  lines.push("# Session primer — load project overview + critical knowledge (~170 tokens)");
+  lines.push("vemora brief --root .");
+  lines.push("");
+  lines.push("# All context about a file or symbol in one call (impl + deps + callers + tests + knowledge)");
+  lines.push("vemora focus src/path/to/file.ts --root .");
+  lines.push("vemora focus SymbolName --root .");
+  lines.push("");
   lines.push("# Semantic search — returns the most relevant code chunks");
   lines.push('vemora query "your question" --root .');
+  lines.push('vemora query "your question" --root . --keyword  # no embeddings needed');
+  lines.push('vemora query "your question" --root . --budget 3000  # cap token output');
   lines.push("");
   lines.push("# One-shot answer: retrieve context and call the configured LLM");
   lines.push('vemora ask "your question" --root .');
-  lines.push(
-    'vemora ask "your question" --root . --keyword  # no embeddings needed',
-  );
   lines.push("");
   lines.push("# Generate a full context block to paste into any LLM");
-  lines.push(
-    'vemora context --root . --query "your question" > context.md',
-  );
+  lines.push('vemora context --root . --query "your question" > context.md');
+  lines.push("vemora context --root . --file src/path/to/file.ts");
   lines.push("");
-  lines.push("# Include a specific file with its dependency graph");
-  lines.push(
-    "vemora context --root . --file src/path/to/file.ts",
-  );
+  lines.push("# Complex multi-step task: pro LLM plans, smaller LLM executes each step");
+  lines.push('vemora plan "add rate limiting to the API layer" --root . --confirm --synthesize');
   lines.push("");
-  lines.push("# Limit context to a token budget");
-  lines.push(
-    'vemora query "your question" --root . --budget 3000',
-  );
+  lines.push("# Systematic LLM audit for security / performance / bugs");
+  lines.push("vemora audit --root . --type security,bugs");
+  lines.push("vemora audit --root . --since HEAD~1  # only changed files");
   lines.push("");
-  lines.push(
-    "# Save a persistent note (architectural decision, gotcha, approved pattern)",
-  );
-  lines.push(
-    'vemora remember "text" --root . --category decision',
-  );
-  lines.push(
-    'vemora remember "text" --root . --category gotcha',
-  );
+  lines.push("# Zero-LLM static scan — no API key needed");
+  lines.push("vemora triage --root . --type bugs,security");
+  lines.push("");
+  lines.push("# Dependency graph");
+  lines.push("vemora deps src/path/to/file.ts --root . --reverse-depth 2");
+  lines.push("vemora usages <SymbolName> --root .");
+  lines.push("");
+  lines.push("# Save a persistent note — category is auto-classified by the LLM");
+  lines.push('vemora remember "text" --root .');
   lines.push("");
   lines.push("# List saved knowledge entries");
   lines.push("vemora knowledge list --root .");
-  lines.push("");
-  lines.push("# Find all callers of a symbol (follows re-export chains)");
-  lines.push("vemora usages <SymbolName> --root .");
   lines.push("```");
   lines.push("");
   lines.push(

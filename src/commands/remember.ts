@@ -1,6 +1,7 @@
 import chalk from "chalk";
 import crypto from "crypto";
 import { loadConfig } from "../core/config";
+import { createLLMProvider } from "../llm/factory";
 import type { KnowledgeEntry } from "../core/types";
 import { KnowledgeStorage } from "../storage/knowledge";
 import { RepositoryStorage } from "../storage/repository";
@@ -15,12 +16,49 @@ export interface RememberOptions {
   supersedes?: string;
 }
 
+const VALID_CATEGORIES = ["decision", "pattern", "gotcha", "glossary"] as const;
+type Category = (typeof VALID_CATEGORIES)[number];
+
+/**
+ * Calls the configured LLM to classify a knowledge entry body into one of the
+ * four categories. Falls back to "pattern" if the LLM is unavailable or returns
+ * an unexpected value.
+ */
+async function classifyCategory(
+  body: string,
+  config: ReturnType<typeof loadConfig>,
+): Promise<Category> {
+  const llmConfig = config.summarization ?? config.planner;
+  if (!llmConfig) return "pattern";
+  try {
+    const provider = createLLMProvider(llmConfig);
+    const resp = await provider.chat([
+      {
+        role: "system",
+        content:
+          "You are a classifier. Given a short knowledge note about a software project, " +
+          "reply with exactly one word — the best category for the note:\n" +
+          "- decision  (an architectural or design choice and its rationale)\n" +
+          "- pattern   (an approved implementation pattern or convention)\n" +
+          "- gotcha    (a surprising behaviour, constraint, or known trap)\n" +
+          "- glossary  (a definition or explanation of a term used in the project)\n" +
+          "Reply with only the single category word, nothing else.",
+      },
+      { role: "user", content: body.slice(0, 500) },
+    ]);
+    const word = resp.content.trim().toLowerCase() as Category;
+    return VALID_CATEGORIES.includes(word) ? word : "pattern";
+  } catch {
+    return "pattern";
+  }
+}
+
 export async function runRemember(
   rootDir: string,
   body: string,
   options: RememberOptions = {},
 ): Promise<void> {
-  loadConfig(rootDir); // validate project is initialized
+  const config = loadConfig(rootDir);
 
   if (body.trim().length < 20) {
     console.error(
@@ -71,9 +109,24 @@ export async function runRemember(
       .trim()
       .slice(0, 80);
 
+  // Auto-classify category via LLM when not explicitly provided
+  let category: Category;
+  if (options.category) {
+    category = options.category;
+  } else {
+    const spinner = (await import("ora")).default("Classifying…").start();
+    try {
+      category = await classifyCategory(body, config);
+      spinner.stop();
+    } catch {
+      spinner.stop();
+      category = "pattern";
+    }
+  }
+
   const entry: KnowledgeEntry = {
     id: crypto.randomUUID(),
-    category: options.category ?? "pattern",
+    category,
     title,
     body: body.trim(),
     relatedFiles: options.files

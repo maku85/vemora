@@ -82,6 +82,13 @@ vemora index --no-embed      # build index without embeddings (fast)
 vemora index                 # or: build index + generate embeddings
 vemora summarize             # recommended: generate LLM descriptions per file
 vemora init-agent            # generate instruction files for AI agents
+vemora init-agent --hooks    # also write Claude Code auto-save hooks
+```
+
+### 1b. Start of each session
+
+```bash
+vemora brief --root .        # compact primer: project overview + critical knowledge
 ```
 
 ### 2. Query during development
@@ -359,20 +366,41 @@ vemora audit --since main --output markdown --root . > audit-report.md
 
 Saves a persistent knowledge entry to `.vemora/knowledge/entries.json`. The entry is committed to git and included automatically in future `context` and `ask` results when relevant.
 
+When `--category` is omitted, the configured LLM classifies the entry automatically into one of the four categories. Falls back to `pattern` if no LLM is available.
+
 ```
 Options:
   --root <dir>            project root (default: cwd)
-  --category <cat>        decision | pattern | gotcha | glossary (default: decision)
+  --category <cat>        decision | pattern | gotcha | glossary (auto-classified if omitted)
   --files <paths>         comma-separated related file paths
   --symbols <names>       comma-separated related symbol names
   --confidence <level>    high | medium | low (default: medium)
 ```
 
 ```bash
+# Category auto-classified by the LLM
+vemora remember "EmailService.send queues if SMTP offline — see OutboxRepository"
+
+# Or specify explicitly
 vemora remember "EmailService.send queues if SMTP offline — see OutboxRepository" \
   --category gotcha \
   --files src/core/email/services/email.service.ts \
   --symbols EmailService.send
+```
+
+### `vemora brief`
+
+Prints a compact session primer — project overview and high-confidence knowledge entries — designed to be run at the start of each LLM session to re-establish context with minimal tokens.
+
+```
+Options:
+  --root <dir>   project root (default: cwd)
+  --all          include all knowledge entries, not only high-confidence ones
+```
+
+```bash
+vemora brief --root .       # overview + high-confidence entries only (~170 tokens)
+vemora brief --root . --all # include all entries
 ```
 
 ### `vemora knowledge`
@@ -393,6 +421,13 @@ Options:
   --root <dir>     project root (default: cwd)
   --agent <name>   target a single agent: claude, gemini, copilot, cursor, windsurf (default: all)
   --force          overwrite existing files that have no vemora markers
+  --hooks          write Claude Code hooks to .claude/settings.json (claude target only)
+```
+
+Use `--hooks` to register a `PreCompact` hook that reminds Claude Code to persist key decisions before context is compressed:
+
+```bash
+vemora init-agent --agent claude --hooks --root .
 ```
 
 | Agent | Output file |

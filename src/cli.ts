@@ -18,6 +18,7 @@ import chalk from "chalk";
 import { Command } from "commander";
 import path from "path";
 import { runAsk } from "./commands/ask";
+import { runBrief } from "./commands/brief";
 import { runAudit } from "./commands/audit";
 import { runFocus } from "./commands/focus";
 import { runPlan } from "./commands/plan";
@@ -555,8 +556,13 @@ program
     "Which agent to target: claude, gemini, copilot, cursor, windsurf (default: all)",
   )
   .option("--force", "Overwrite existing files that have no vemora markers")
+  .option(
+    "--hooks",
+    "Write Claude Code hooks to .claude/settings.json (claude target only)",
+    false,
+  )
   .option("--root <dir>", "Project root directory", process.cwd())
-  .action(async (opts: { agent?: string; force?: boolean; root: string }) => {
+  .action(async (opts: { agent?: string; force?: boolean; hooks: boolean; root: string }) => {
     const ALL_AGENTS = ["claude", "copilot", "cursor", "windsurf", "gemini"] as const;
     type AgentTarget = (typeof ALL_AGENTS)[number];
     const agents: AgentTarget[] | undefined = opts.agent
@@ -573,7 +579,7 @@ program
       process.exit(1);
     }
     try {
-      await runInitAgent(opts.root, { agents, force: opts.force });
+      await runInitAgent(opts.root, { agents, force: opts.force, hooks: opts.hooks });
     } catch (err) {
       console.error(chalk.red("Error:"), (err as Error).message);
       process.exit(1);
@@ -590,8 +596,7 @@ program
   .option("--root <dir>", "project root directory (default: cwd)", "")
   .option(
     "--category <cat>",
-    "entry category: decision | pattern | gotcha | glossary",
-    "pattern",
+    "entry category: decision | pattern | gotcha | glossary (auto-classified if omitted)",
   )
   .option("--title <title>", "short title (auto-derived from text if omitted)")
   .option(
@@ -630,7 +635,8 @@ program
             | "decision"
             | "pattern"
             | "gotcha"
-            | "glossary",
+            | "glossary"
+            | undefined,
           title: opts.title,
           files: opts.files,
           symbols: opts.symbols,
@@ -952,6 +958,25 @@ program
       }
     },
   );
+
+// ── brief ─────────────────────────────────────────────────────────────────────
+
+program
+  .command("brief")
+  .description(
+    "Print a compact session primer: project overview + high-confidence knowledge",
+  )
+  .option("--root <dir>", "project root directory (default: cwd)", "")
+  .option("--all", "include all knowledge entries, not only high-confidence ones", false)
+  .action(async (opts: { root: string; all: boolean }) => {
+    const rootDir = path.resolve(opts.root || process.cwd());
+    try {
+      await runBrief(rootDir, { all: opts.all });
+    } catch (err) {
+      console.error(chalk.red("Error:"), (err as Error).message);
+      process.exit(1);
+    }
+  });
 
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -54,6 +54,24 @@ The system solves a specific tension: **more context = better LLM understanding,
 
 Layer 1 is committed to git so the whole team shares the same index without each developer rebuilding it. Layer 2 is local because embeddings are large binary data that doesn't belong in git (adds no diff value, large file churn).
 
+There is also an implicit **session layer** managed by `storage/session.ts`, stored alongside the embedding cache in `~/.vemora-cache/<projectId>/session.json`. It tracks which chunks have already been returned to the LLM in the current session (30-minute idle TTL) to avoid repetition across sequential queries.
+
+In full, the memory layers are:
+
+| Layer | Location | Scope | TTL | Storage class |
+|---|---|---|---|---|
+| Session | `~/.vemora-cache/<id>/session.json` | single developer, single session | 30 min idle | `SessionStorage` |
+| Local cache | `~/.vemora-cache/<id>/` | single developer, persistent | indefinite | `EmbeddingCacheStorage` |
+| Project / team | `.vemora/` (git-versioned) | whole team, permanent | indefinite | `KnowledgeStorage`, `RepositoryStorage` |
+
+### When to formalise this separation
+
+The current implicit separation is sufficient. It should be made explicit (a shared `MemoryLayer` interface or a router that dispatches reads/writes by layer) only when one of the following triggers is reached:
+
+1. **A global / cross-project layer is added** — e.g. user-level knowledge shared across all repositories. At that point a fourth layer exists and the routing logic becomes non-trivial.
+2. **Feature 3 (temporal decision graph) is implemented** — decisions need a clear scope: is this decision session-scoped (ephemeral) or project-scoped (committed)? The layer boundary enforces that distinction.
+3. **Context output labels layers** — if `vemora context` starts annotating each injected block with its origin (`[session]`, `[knowledge]`, `[index]`), a formalised layer model makes the rendering logic cleaner.
+
 ---
 
 ## Data flow: `vemora index`

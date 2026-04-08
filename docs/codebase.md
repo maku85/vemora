@@ -36,6 +36,7 @@ The Commander.js program definition. Registers fourteen commands (plus one subco
 | `bench <query>` | `commands/bench.ts:runBench` |
 | `overview` | `commands/overview.ts:runOverview` |
 | `remember <text>` | `commands/remember.ts:runRemember` |
+| `brief` | `commands/brief.ts:runBrief` |
 | `knowledge list` | `commands/knowledge.ts:runKnowledgeList` |
 | `knowledge forget <id>` | `commands/knowledge.ts:runKnowledgeForget` |
 
@@ -520,7 +521,9 @@ Implementazione del middleware interattivo.
 
 ## `src/commands/init-agent.ts` — `vemora init-agent`
 
-`runInitAgent(rootDir, { agents?, force? })` — generates AI agent instruction files from the existing index. No API calls made.
+`runInitAgent(rootDir, { agents?, force?, hooks? })` — generates AI agent instruction files from the existing index. No API calls made.
+
+When `hooks: true` and `"claude"` is in the target list, also calls `writeClaudeHooks(rootDir, force)` which writes a `PreCompact` hook entry into `.claude/settings.json`. Existing hooks outside the vemora-managed key are preserved. If `PreCompact` already exists and `force` is false, the hook write is skipped with a warning.
 
 Supported agents and output paths:
 
@@ -756,10 +759,42 @@ Pipeline:
 1. Validates `body.length >= 20` (exits with error if too short).
 2. Auto-derives `title` from first sentence of `body`, capped at 80 chars.
 3. Duplicate detection: computes term overlap between `body` and each existing entry; warns if any entry has > 60% term overlap (without blocking the write).
-4. Creates a `KnowledgeEntry` with a UUID v4 `id` and `createdAt: new Date().toISOString()`.
-5. Calls `KnowledgeStorage.add(entry)` and prints a confirmation with the short ID.
+4. **Auto-classification**: if `category` is not provided, calls `classifyCategory(body, config)` via the configured LLM (same provider as `summarization` or `planner`). The LLM returns one of `decision | pattern | gotcha | glossary`. Falls back silently to `"pattern"` if no LLM is configured or the call fails.
+5. Creates a `KnowledgeEntry` with a UUID v4 `id` and `createdAt: new Date().toISOString()`.
+6. Calls `KnowledgeStorage.add(entry)` and prints a confirmation with the short ID.
 
-Default values: `category = 'pattern'`, `confidence = 'medium'`, `createdBy = 'human'`.
+Default values: `confidence = 'medium'`, `createdBy = 'human'`. `category` has no hardcoded default — it is auto-classified when omitted.
+
+---
+
+## `src/commands/brief.ts` — `vemora brief`
+
+`runBrief(rootDir, options)` — prints a compact session primer.
+
+Options (`BriefOptions`): `all` (boolean, default `false`).
+
+Pipeline:
+1. Loads `ProjectSummary` from `SummaryStorage` (if available).
+2. Loads all `KnowledgeEntry` items from `KnowledgeStorage`.
+3. Filters entries to `confidence === 'high'` unless `options.all` is set.
+4. Groups filtered entries by `category` and renders each group.
+5. Body text is capped at 120 chars per entry to keep token use minimal.
+
+Output structure:
+```
+# <projectName> — session brief
+
+## Overview
+<project-summary.json overview>
+
+## Critical knowledge (N)
+
+<category>
+- **<title>**
+  <body preview>
+```
+
+Designed as an L0+L1 context load at session start: ~170 tokens for a typical project with a summary and a handful of high-confidence entries.
 
 ---
 
