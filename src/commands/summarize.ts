@@ -125,47 +125,58 @@ export async function runSummarize(
       const updated: FileSummaryIndex = { ...prevSummaries };
       let failed = 0;
 
-      for (let i = 0; i < toSummarize.length; i++) {
-        const [relPath, entry] = toSummarize[i];
-        const label = `[${i + 1}/${toSummarize.length}] ${relPath}`;
-        const spinner = ora(chalk.gray(label)).start();
+      // Ollama processes one request at a time, but batching 2-3 in parallel
+      // overlaps I/O and queue wait time without overwhelming the GPU.
+      const BATCH_SIZE = summarizationConfig.provider === "ollama" ? 2 : 5;
 
-        try {
-          // Read file content, truncate to ~4000 chars to stay within prompt limits
-          const absolutePath = path.join(rootDir, relPath);
-          let content = "";
-          if (fs.existsSync(absolutePath)) {
-            const raw = fs.readFileSync(absolutePath, "utf-8");
-            content =
-              raw.length > 4000
-                ? raw.slice(0, 4000) + "\n... (truncated)"
-                : raw;
-          }
+      for (let i = 0; i < toSummarize.length; i += BATCH_SIZE) {
+        const batch = toSummarize.slice(i, i + BATCH_SIZE);
 
-          const fileSymbols = entry.symbols ?? [];
+        await Promise.all(
+          batch.map(async ([relPath, entry], batchIdx) => {
+            const globalIdx = i + batchIdx;
+            const label = `[${globalIdx + 1}/${toSummarize.length}] ${relPath}`;
+            const spinner = ora(chalk.gray(label)).start();
 
-          const response = await llm.chat(
-            [{ role: "user", content: fileSummaryPrompt(relPath, fileSymbols, content) }],
-            { model, maxTokens: 250, temperature: 0 },
-          );
+            try {
+              // Read file content, truncate to ~4000 chars to stay within prompt limits
+              const absolutePath = path.join(rootDir, relPath);
+              let content = "";
+              if (fs.existsSync(absolutePath)) {
+                const raw = fs.readFileSync(absolutePath, "utf-8");
+                content =
+                  raw.length > 4000
+                    ? raw.slice(0, 4000) + "\n... (truncated)"
+                    : raw;
+              }
 
-          const summary = response.content.trim();
+              const fileSymbols = entry.symbols ?? [];
 
-          updated[relPath] = {
-            summary,
-            contentHash: entry.hash,
-            generatedAt: new Date().toISOString(),
-          };
+              const response = await llm.chat(
+                [{ role: "user", content: fileSummaryPrompt(relPath, fileSymbols, content) }],
+                { model, maxTokens: 250, temperature: 0 },
+              );
 
-          spinner.succeed(chalk.gray(relPath));
-          anyFileSummaryChanged = true;
-        } catch (err) {
-          spinner.fail(chalk.red(`${relPath}: ${(err as Error).message}`));
-          failed++;
-        }
+              const summary = response.content.trim();
+
+              updated[relPath] = {
+                summary,
+                contentHash: entry.hash,
+                generatedAt: new Date().toISOString(),
+              };
+
+              spinner.succeed(chalk.gray(relPath));
+              anyFileSummaryChanged = true;
+            } catch (err) {
+              spinner.fail(chalk.red(`${relPath}: ${(err as Error).message}`));
+              failed++;
+            }
+          }),
+        );
+
+        // Save incrementally after each batch so progress is not lost on failure
+        summaryStorage.saveFileSummaries(updated);
       }
-
-      summaryStorage.saveFileSummaries(updated);
 
       console.log();
       console.log(

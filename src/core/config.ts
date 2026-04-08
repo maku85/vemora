@@ -95,6 +95,14 @@ export function getDefaultConfig(
       "**/coverage/**",
       "**/*.min.js",
       "**/*.bundle.js",
+      // Lock files — auto-generated, no value for summarization
+      "**/pnpm-lock.yaml",
+      "**/package-lock.json",
+      "**/yarn.lock",
+      "**/bun.lockb",
+      // Other generated/binary files
+      "**/*.lock",
+      "**/*.log",
       AI_MEMORY_DIR + "/**",
       AI_MEMORY_CACHE_DIR + "/**",
     ],
