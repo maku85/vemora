@@ -14,6 +14,20 @@ export interface GitCommit {
  *
  * Uses --follow so renames/moves are tracked across history.
  */
+/**
+ * Returns the list of files changed since a given git ref (commit, branch, tag).
+ * Returns [] if git is unavailable or the ref is invalid.
+ */
+export function getChangedFiles(since: string, rootDir: string): string[] {
+  const result = spawnSync(
+    "git",
+    ["diff", "--name-only", since, "--", "."],
+    { cwd: rootDir, encoding: "utf-8" },
+  );
+  if (result.status !== 0 || !result.stdout?.trim()) return [];
+  return result.stdout.trim().split("\n").filter(Boolean);
+}
+
 export function getFileGitHistory(
   rootDir: string,
   relPath: string,

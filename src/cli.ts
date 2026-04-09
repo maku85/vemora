@@ -412,6 +412,7 @@ program
     false,
   )
   .option("--fresh", "reset session memory before this query", false)
+  .option("--since <ref>", "restrict search to files changed since this git ref (e.g. HEAD~5, main)")
   .action(
     async (opts: {
       root: string;
@@ -432,6 +433,7 @@ program
       structured: boolean;
       session: boolean;
       fresh: boolean;
+      since?: string;
     }) => {
       const rootDir = path.resolve(opts.root || process.cwd());
       const fmt = opts.format as "markdown" | "plain" | "terse" | undefined;
@@ -460,6 +462,7 @@ program
           structured: opts.structured,
           session: opts.session,
           fresh: opts.fresh,
+          since: opts.since,
         });
       } catch (err) {
         console.error(chalk.red("Error:"), (err as Error).message);

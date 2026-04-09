@@ -209,6 +209,7 @@ Options:
   --hybrid              use hybrid search (vector + BM25)
   --budget <n>          max tokens to include across retrieved chunks
   --structured          emit a structured block (Entry Point / Dependencies / Types / Patterns)
+  --since <ref>         restrict search to files changed since this git ref (e.g. HEAD~5, main)
 ```
 
 At least one of `--query` or `--file` is required.

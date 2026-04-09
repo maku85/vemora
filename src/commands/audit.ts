@@ -1,5 +1,4 @@
 import chalk from "chalk";
-import { spawnSync } from "child_process";
 import ora from "ora";
 import { loadConfig } from "../core/config";
 import type {
@@ -19,6 +18,7 @@ import { KnowledgeStorage } from "../storage/knowledge";
 import { RepositoryStorage } from "../storage/repository";
 import { SummaryStorage } from "../storage/summaries";
 import { applyTokenBudget } from "../utils/tokenizer";
+import { getChangedFiles } from "../utils/git";
 import { generateContextString } from "./context";
 
 // ─── Public types ─────────────────────────────────────────────────────────────
@@ -139,21 +139,6 @@ const AUDIT_EXECUTOR_PROMPT =
   `{ "findings": [{ "severity": "critical|high|medium|low|info", "category": "<issue type>", "file": "<relative path>", "line": <number or null>, "description": "<what the issue is and why it matters>", "recommendation": "<specific fix>" }] }\n\n` +
   `If no issues found, return: { "findings": [] }\n` +
   `Severity guide: critical=exploitable/data loss, high=significant risk, medium=should fix, low=minor, info=note.`;
-
-// ─── Git helpers ──────────────────────────────────────────────────────────────
-
-function getChangedFiles(since: string, rootDir: string): string[] {
-  const result = spawnSync(
-    "git",
-    ["diff", "--name-only", since, "--", "."],
-    { cwd: rootDir, encoding: "utf-8" },
-  );
-  if (result.status !== 0 || !result.stdout?.trim()) return [];
-  return result.stdout
-    .trim()
-    .split("\n")
-    .filter(Boolean);
-}
 
 // ─── Finding helpers ──────────────────────────────────────────────────────────
 

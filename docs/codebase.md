@@ -660,6 +660,7 @@ Models: default `gpt-4o-mini` (from `config.summarization.model`). API key from 
 
 - `--query <text>` — natural-language query; runs the full search pipeline and includes top-K results
 - `--file <path>` — includes a specific file in full with its dep graph
+- `--since <ref>` — restricts the search candidate pool to chunks whose file appears in `git diff --name-only <ref>`. Applied before any retrieval pipeline; prints the count of changed files as a header. Returns early if no indexed chunks match the diff.
 
 At least one of `--query` or `--file` must be provided.
 

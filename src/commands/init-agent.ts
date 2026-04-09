@@ -76,6 +76,7 @@ Use this decision tree to choose the right command:
 | User asks about a function, class, or file | \`focus <file-or-symbol> --root .\` |
 | User asks a concept/how-does-X-work question | \`context --root . --query "<question>"\` |
 | User asks to fix / refactor / add code | \`context --root . --query "<task>" --keyword\`, then check for \`*.test.ts\` before editing |
+| Need context only on recently changed files | \`context --root . --query "<question>" --since HEAD~5\` |
 | Complex multi-step task | \`plan "<task>" --root . --confirm --synthesize\` |
 | Security / performance / bug audit | \`audit --root . --type security,bugs\` |
 | Quick static scan — no API key needed | \`triage --root . --type bugs,security\` |
@@ -526,6 +527,7 @@ export function buildGeneratedBlock(
   lines.push("# Generate a full context block to paste into any LLM");
   lines.push('vemora context --root . --query "your question" > context.md');
   lines.push("vemora context --root . --file src/path/to/file.ts");
+  lines.push('vemora context --root . --query "what changed" --since HEAD~5  # scope to recent diff');
   lines.push("");
   lines.push("# Complex multi-step task: pro LLM plans, smaller LLM executes each step");
   lines.push('vemora plan "add rate limiting to the API layer" --root . --confirm --synthesize');

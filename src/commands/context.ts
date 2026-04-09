@@ -11,7 +11,7 @@ import type {
   KnowledgeEntry,
   SearchResult,
 } from "../core/types";
-import { getFileGitHistory } from "../utils/git";
+import { getChangedFiles, getFileGitHistory } from "../utils/git";
 import { createEmbeddingProvider } from "../embeddings/factory";
 import { computeImportedBy } from "../indexer/deps";
 import { findTestFiles } from "../indexer/tests";
@@ -74,6 +74,8 @@ export interface ContextOptions {
   session?: boolean;
   /** Reset the session before this query (implies session tracking) */
   fresh?: boolean;
+  /** Restrict search to files changed since this git ref (e.g. HEAD~5, main) */
+  since?: string;
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -94,7 +96,7 @@ export async function runContext(
     format: options.format ?? (config.display?.format as ContextOptions["format"]) ?? "markdown",
   };
 
-  const chunks = repo.loadChunks();
+  let chunks = repo.loadChunks();
   const symbols = repo.loadSymbols();
   const depGraph: DependencyGraph = repo.loadDeps();
   const callGraph: CallGraph = repo.loadCallGraph();
@@ -103,6 +105,20 @@ export async function runContext(
     : {};
   const projectSummary = summaryStorage.loadProjectSummary();
   const knowledgeEntries = filterValidAt(new KnowledgeStorage(rootDir).load());
+
+  if (options.since) {
+    const changedFiles = new Set(getChangedFiles(options.since, rootDir));
+    if (changedFiles.size === 0) {
+      console.log(chalk.yellow(`No changed files since ${options.since}.`));
+      return;
+    }
+    chunks = chunks.filter((c) => changedFiles.has(c.file));
+    if (chunks.length === 0) {
+      console.log(chalk.yellow(`No indexed chunks in the diff since ${options.since}.`));
+      return;
+    }
+    console.log(chalk.gray(`  Scope: ${changedFiles.size} changed file(s) since ${options.since}\n`));
+  }
 
   if (chunks.length === 0) {
     console.error(chalk.red("No index found. Run `vemora index` first."));
