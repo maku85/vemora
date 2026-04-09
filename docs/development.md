@@ -498,7 +498,7 @@ vemora/
         ├── chat.ts         vemora chat
         ├── bench.ts        vemora bench
         ├── summarize.ts    vemora summarize
-        ├── remember.ts     vemora remember <text> (knowledge store write, LLM auto-classify)
+        ├── remember.ts     vemora remember <text> (knowledge store write, LLM auto-classify + contradiction detection)
         ├── brief.ts        vemora brief (session primer: overview + critical knowledge)
         ├── knowledge.ts    vemora knowledge list (--as-of, --expired) / forget (--invalidate)
         └── report.ts       vemora report (usage stats, token savings, latency, hot files, low-signal queries)

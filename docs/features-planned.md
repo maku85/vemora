@@ -168,90 +168,6 @@ Decisions affecting this file:
 
 ---
 
-## Feature 5 — Contradiction detection on `vemora remember`
-
-**Effort:** medium | **LLM value:** high
-
-### Goal
-
-When saving a new knowledge entry, automatically check whether it contradicts an existing one. If a contradiction is detected, prompt the user to supersede the conflicting entry rather than creating a duplicate with conflicting claims.
-
-Inspired by mempalace's `fact_checker.py`, adapted to use vemora's existing LLM infrastructure instead of a separate knowledge graph.
-
-### Detection strategy
-
-Two-pass approach:
-
-1. **Fast pre-filter (no LLM)** — reuse the existing token-overlap similarity check in `runRemember`. If overlap > 0.4 with any existing entry, collect candidates.
-2. **LLM contradiction check (optional)** — if candidates exist and an LLM is configured, ask it whether the new entry contradicts any candidate. This is the same single LLM call pattern already used for auto-classification.
-
-```typescript
-async function detectContradiction(
-  newBody: string,
-  candidates: KnowledgeEntry[],
-  config: AiMemoryConfig,
-): Promise<KnowledgeEntry | null> {
-  if (!config.summarization && !config.planner) return null;
-  const provider = createLLMProvider(config.summarization ?? config.planner!);
-  const candidateList = candidates
-    .map((c, i) => `[${i + 1}] (${c.id.slice(0, 8)}) ${c.title}: ${c.body.slice(0, 200)}`)
-    .join("\n");
-  const resp = await provider.chat([
-    {
-      role: "system",
-      content:
-        "You are a fact-checker for a software project knowledge base. " +
-        "Given a new note and a list of existing notes, determine if the new note " +
-        "DIRECTLY CONTRADICTS any existing note (i.e. they cannot both be true). " +
-        "Reply with the number of the contradicting entry (e.g. '2'), or '0' if there is no contradiction.",
-    },
-    {
-      role: "user",
-      content: `New note: ${newBody}\n\nExisting notes:\n${candidateList}`,
-    },
-  ]);
-  const idx = parseInt(resp.content.trim(), 10);
-  if (isNaN(idx) || idx === 0 || idx > candidates.length) return null;
-  return candidates[idx - 1] ?? null;
-}
-```
-
-### UX flow in `runRemember`
-
-```
-$ vemora remember "We switched from REST to tRPC in March 2026" --root .
-
-⚠  Possible contradiction with existing entry [a1b2c3d4] "REST API is the
-   primary interface for all client communication" (decision, high confidence).
-
-   New:      "We switched from REST to tRPC in March 2026"
-   Existing: "REST API is the primary interface…"
-
-   Options:
-     [s] supersede the existing entry (recommended)
-     [k] keep both entries
-     [a] abort
-
-Choice [s/k/a]:
-```
-
-If the command is run non-interactively (no TTY), the warning is printed but both entries are saved (safe default).
-
-### Integration points
-
-1. **`src/commands/remember.ts`** — add `detectContradiction()` call after similarity pre-filter; add interactive prompt using `readline` (stdlib, no new dep)
-2. No new files needed.
-
-### Known risks
-
-- **False positives**: the LLM may flag updates to a fact as contradictions. The prompt should be tuned to distinguish "update" (same fact, new value) from "contradiction" (two mutually exclusive claims).
-- **Latency**: adds one LLM round-trip to `vemora remember`. Only triggered when the pre-filter finds candidates, so no overhead on the common case.
-- **Non-interactive use**: `--no-interactive` flag or TTY detection should bypass the prompt and default to keeping both entries.
-
----
-
----
-
 ## Feature 6 — MCP server mode
 
 **Effort:** medium | **LLM value:** very high
@@ -420,7 +336,6 @@ Steps are executed sequentially; `{{varName}}` interpolation passes output betwe
 |---|---|---|---|---|
 | 2 — Coverage | `src/indexer/coverage.ts` | `types.ts`, `context.ts`, `status.ts` | none (LCOV parser is ~50 lines) | ~1–2 days |
 | 3 — Decision metadata on KnowledgeEntry | none | `types.ts`, `remember.ts`, `context.ts` | none | ~2–3 h |
-| 5 — Contradiction detection | none | `remember.ts` | none (readline is stdlib) | ~4–6 h |
 | 6 — MCP server | `src/commands/serve.ts` | `cli.ts`, `package.json` | `@modelcontextprotocol/sdk` | ~1–2 days |
 | 7 — Prompt injection detection | `src/utils/injection.ts` | `formatter.ts` | none | ~2–4 h |
 | 8 — Recipes | `src/commands/recipe.ts` | `cli.ts`, `package.json` | `js-yaml` | ~1 day |
