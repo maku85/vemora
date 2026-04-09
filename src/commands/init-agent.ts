@@ -30,7 +30,7 @@ export const DEFAULT_INSTRUCTIONS = `## Working with this codebase
 - **Before querying**, try \`vemora query\` first — open a file only if the returned context is insufficient.
 - **Before deep-diving a file or symbol**, use \`vemora focus\` — it aggregates implementation, deps, callers, tests, and knowledge in one call.
 - **Before modifying a file**, check its blast radius: \`vemora deps <file> --root . --reverse-depth 2\`.
-- **Before renaming a symbol or changing its API**, check who uses it: \`vemora usages <SymbolName> --root .\`.
+- **Before renaming a symbol or changing its API**, check who uses it: \`vemora usages <SymbolName> --root .\`. For methods, add \`--callers-only\` to see only actual call sites (not just files that import the class).
 - **After making changes**, always run the build/test command to verify correctness before declaring done.
 - **Scope discipline**: only make changes directly requested. Do not refactor surrounding code, add comments, or improve things that were not explicitly asked.
 - **Save non-obvious findings** with \`vemora remember\` when you discover a gotcha, an architectural decision, or a pattern worth preserving for future sessions. Do not save things already obvious from reading the code.
@@ -83,7 +83,8 @@ Use this decision tree to choose the right command:
 | No embeddings available / fast keyword search | add \`--keyword\` to any \`query\` or \`context\` call |
 | Need to understand who imports a file | \`deps <file> --root .\` |
 | Need to see the full blast radius of a change | \`deps <file> --root . --reverse-depth 3\` |
-| Need to find who calls a specific symbol | \`usages <SymbolName> --root .\` |`;
+| Need to find who imports a class or function | \`usages <SymbolName> --root .\` |
+| Need to find who calls a specific method | \`usages <MethodName> --root . --callers-only\` |`;
 
 // ─── Main command ─────────────────────────────────────────────────────────────
 
@@ -537,7 +538,8 @@ export function buildGeneratedBlock(
   lines.push("");
   lines.push("# Dependency graph");
   lines.push("vemora deps src/path/to/file.ts --root . --reverse-depth 2");
-  lines.push("vemora usages <SymbolName> --root .");
+  lines.push("vemora usages <SymbolName> --root .              # who imports a class or function");
+  lines.push("vemora usages <MethodName> --root . --callers-only  # who calls a specific method");
   lines.push("");
   lines.push("# Save a persistent note — category is auto-classified by the LLM");
   lines.push('vemora remember "text" --root .');
