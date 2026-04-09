@@ -1,6 +1,6 @@
 import chalk from "chalk";
 import { loadConfig } from "../core/config";
-import { KnowledgeStorage } from "../storage/knowledge";
+import { KnowledgeStorage, filterValidAt } from "../storage/knowledge";
 import { SummaryStorage } from "../storage/summaries";
 
 export interface BriefOptions {
@@ -25,7 +25,7 @@ export async function runBrief(
   const knowledgeStorage = new KnowledgeStorage(rootDir);
 
   const projectSummary = summaryStorage.loadProjectSummary();
-  const allEntries = knowledgeStorage.load();
+  const allEntries = filterValidAt(knowledgeStorage.load());
   const entries = options.all
     ? allEntries
     : allEntries.filter((e) => e.confidence === "high");

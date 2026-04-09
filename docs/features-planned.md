@@ -4,87 +4,6 @@ Features analyzed for implementation but deferred. Listed in ascending order of 
 
 ---
 
-## Feature 1 — Complexity heuristics
-
-**Effort:** medium | **LLM value:** medium
-
-### Goal
-
-Surface a complexity estimate for each symbol/chunk in the file context block. Helps the LLM prioritise attention (high-complexity functions are more likely to contain bugs and to benefit from careful reading).
-
-### Metrics
-
-| Metric | Source | Notes |
-|---|---|---|
-| Line count | `chunk.end - chunk.start` | Already available, trivial |
-| Branch count | Regex on content | Count `if`, `else`, `for`, `while`, `switch`, `case`, `?`, `&&`, `\|\|`, `?.` |
-| Nesting depth | tree-sitter (preferred) or indent heuristic | Indent heuristic fails on formatter-normalised code |
-
-### Suggested thresholds (TypeScript / JavaScript)
-
-```
-lines > 40  OR  branches > 8  OR  depth > 4  →  "high"
-lines > 20  OR  branches > 4  OR  depth > 3  →  "medium"
-otherwise                                     →  "low"
-```
-
-Thresholds should be configurable in `config.json` under `display.complexity`.
-
-### Implementation sketch
-
-```typescript
-// src/indexer/complexity.ts
-export interface ComplexityMetrics {
-  lines: number;
-  branches: number;
-  nestingDepth: number;
-  level: "low" | "medium" | "high";
-}
-
-const BRANCH_RE = /\b(if|else|for|while|switch|case)\b|\?\.?|&&|\|\|/g;
-
-export function computeComplexity(content: string): ComplexityMetrics {
-  const lines = content.split("\n").length;
-  const branches = (content.match(BRANCH_RE) ?? []).length;
-  // nesting depth: count max run of leading spaces / indentSize
-  const nestingDepth = Math.max(
-    ...content.split("\n").map((l) => {
-      const indent = l.match(/^( +)/)?.[1].length ?? 0;
-      return Math.floor(indent / 2);
-    }),
-  );
-  const level =
-    lines > 40 || branches > 8 || nestingDepth > 4
-      ? "high"
-      : lines > 20 || branches > 4 || nestingDepth > 3
-        ? "medium"
-        : "low";
-  return { lines, branches, nestingDepth, level };
-}
-```
-
-### Integration points
-
-1. **`src/indexer/complexity.ts`** — new file with `computeComplexity(content)`
-2. **`src/core/types.ts`** — add optional `complexity?: ComplexityMetrics` to `Chunk`
-3. **`src/commands/index.ts`** — compute and attach during chunking (or lazily in `context`)
-4. **`src/commands/context.ts`** — render in file context after the file content block:
-
-```
-Complexity:
-- `runIndex` — HIGH (52 lines, 11 branches, depth 5)
-- `performIndexIteration` — MEDIUM (34 lines, 6 branches, depth 3)
-```
-
-5. **`src/commands/query.ts`** — optionally show complexity badge next to symbol name in results.
-
-### Known risks
-
-- Branch regex produces false positives in string literals and comments. A tree-sitter pass (already optional) would be more accurate but adds latency.
-- "High complexity" is codebase-dependent. Thresholds that work for a utility library may be wrong for a transpiler. Consider per-project calibration via percentile (top 10% = high).
-
----
-
 ## Feature 2 — Coverage integration
 
 **Effort:** high | **LLM value:** high (but conditional on tests existing)
@@ -188,132 +107,15 @@ Default: auto-detect from well-known paths. If not found, feature is silently sk
 
 ---
 
-## Feature 3 — Temporal decision graph
+## Feature 3 — Decision metadata on `KnowledgeEntry`
 
-**Effort:** high | **LLM value:** high
-
-### Goal
-
-Record architectural and design decisions as first-class entities linked to their git context, related files, and rationale. Enables the LLM to answer questions like *"why was X refactored?"* or *"what decision led to this pattern?"* by traversing a causal chain rather than relying on commit message text alone.
-
-### Data model
-
-```typescript
-// src/storage/decisions.ts
-
-export interface DecisionNode {
-  id: string;              // UUID v4
-  timestamp: string;       // ISO timestamp
-  title: string;           // short label, e.g. "Switch from REST to tRPC"
-  rationale: string;       // free-form explanation
-  linkedCommit?: string;   // git SHA at the time of the decision
-  relatedFiles?: string[]; // project-relative paths affected
-  relatedSymbols?: string[];
-  supersedes?: string;     // ID of the decision this replaces
-  tags?: string[];         // e.g. ["architecture", "auth", "performance"]
-}
-
-export interface DecisionGraph {
-  nodes: DecisionNode[];
-  // edges are implicit: supersedes + shared relatedFiles/relatedSymbols
-}
-```
-
-Persisted to `.vemora/decisions.json`.
-
-### CLI surface
-
-| Command | Behaviour |
-|---|---|
-| `vemora decide "<title>" --rationale "<text>"` | Create a new `DecisionNode`, auto-link to `HEAD` SHA and staged files |
-| `vemora decisions list` | Print all nodes ordered by timestamp |
-| `vemora decisions show <id>` | Full detail for one node |
-| `vemora decisions forget <id>` | Remove a node |
-
-The existing `remember` command (category `decision`) should become a thin alias for `decide`.
-
-### Context injection
-
-`vemora context --file <path>` already injects `KnowledgeEntry` items with `category: 'decision'`. With this feature, the context command should also inject `DecisionNode` entries whose `relatedFiles` include the requested file, formatted as:
-
-```
-Decisions affecting this file:
-- [2026-03-10] Switch from REST to tRPC — "Chosen for end-to-end type safety; REST client
-  was generating too many runtime type errors." (commit a1b2c3d)
-```
-
-### LLM-assisted capture
-
-When running `vemora ask` or `vemora chat`, the LLM response may contain explicit design decisions. A post-response hook can prompt the user:
-
-```
-Detected a possible decision: "Use lazy initialisation for the HNSW index".
-Save it? [y/N]
-```
-
-This keeps the graph growing organically without requiring manual `decide` calls.
-
-### Implementation sketch
-
-```typescript
-// src/storage/decisions.ts
-import { readJsonFile, writeJsonFile } from "./repository";
-
-const DECISIONS_FILE = ".vemora/decisions.json";
-
-export async function loadDecisions(rootDir: string): Promise<DecisionGraph> {
-  return (await readJsonFile(rootDir, DECISIONS_FILE)) ?? { nodes: [] };
-}
-
-export async function saveDecision(
-  rootDir: string,
-  node: DecisionNode,
-): Promise<void> {
-  const graph = await loadDecisions(rootDir);
-  graph.nodes.push(node);
-  await writeJsonFile(rootDir, DECISIONS_FILE, graph);
-}
-
-export function decisionsForFile(
-  graph: DecisionGraph,
-  relPath: string,
-): DecisionNode[] {
-  return graph.nodes
-    .filter((n) => n.relatedFiles?.includes(relPath))
-    .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-}
-```
-
-### Integration points
-
-1. **`src/storage/decisions.ts`** — new file: load / save / query helpers
-2. **`src/core/types.ts`** — add `DecisionNode` and `DecisionGraph` interfaces
-3. **`src/commands/decide.ts`** — new command: create a node, auto-link to HEAD, resolve staged files via `git diff --cached --name-only`
-4. **`src/commands/context.ts`** — inject `decisionsForFile()` results into the context block
-5. **`src/cli.ts`** — register `decide` and `decisions` subcommands
-6. **`src/utils/git.ts`** — add `getStagedFiles(rootDir): Promise<string[]>` helper
-
-### Known risks
-
-- **Manual upkeep burden**: if developers never run `vemora decide`, the graph stays empty. The LLM-assisted capture hook mitigates this but adds conversational friction.
-- **Stale links**: a `relatedFiles` path may be renamed or deleted. Reference integrity should be checked lazily during `context` and stale entries flagged rather than silently dropped.
-- **Scope creep**: a full graph with typed edge labels (e.g. `CAUSED_BY`, `SUPERSEDES`, `BLOCKED_BY`) is a significant undertaking. The initial implementation should use implicit edges only (shared files/symbols + `supersedes`) and introduce explicit edges only if query patterns demand them.
-
----
-
----
-
-## Feature 4 — Temporal knowledge graph with validity windows
-
-**Effort:** high | **LLM value:** high
+**Effort:** low | **LLM value:** medium
 
 ### Goal
 
-Extend the knowledge store so that facts about the project carry temporal validity: each entry records when it became true (`validFrom`) and, optionally, when it stopped being true (`validUntil`). This lets the LLM query the knowledge base *as of* a specific point in time and avoids surfacing stale facts.
+Extend `KnowledgeEntry` with optional decision-specific fields — without introducing a new storage file, new command, or separate data model. `vemora remember` with `category: decision` already covers the core use case; this adds the metadata that makes decisions more actionable in context.
 
-Inspired by mempalace's `knowledge_graph.py`, adapted to vemora's TypeScript / JSON-file stack (no SQLite or Neo4j dependency).
-
-### Data model extension
+### Extension to `KnowledgeEntry`
 
 ```typescript
 // Addition to KnowledgeEntry in src/core/types.ts
@@ -321,56 +123,48 @@ Inspired by mempalace's `knowledge_graph.py`, adapted to vemora's TypeScript / J
 export interface KnowledgeEntry {
   // … existing fields …
 
-  /** ISO timestamp when this fact became true (defaults to createdAt). */
-  validFrom?: string;
-  /** ISO timestamp when this fact stopped being true. Absent = still valid. */
-  validUntil?: string;
+  /** Git SHA at the time the decision was made. */
+  linkedCommit?: string;
+  /** Project-relative file paths most affected by this decision. */
+  relatedFiles?: string[];
+  /** ID of the KnowledgeEntry this decision supersedes (if any). */
+  supersedes?: string;
 }
 ```
 
-No new storage file is needed: the validity window is stored inline in `entries.json`.
+### CLI changes
 
-### New CLI options
+Add optional flags to `vemora remember` (no new command needed):
 
-| Option | Command | Behaviour |
-|---|---|---|
-| `--as-of <date>` | `knowledge list` | Only show entries valid at the given ISO date |
-| `--expired` | `knowledge list` | Only show entries with a `validUntil` in the past |
-| `--invalidate <id>` | `knowledge forget` (or a new subcommand) | Set `validUntil = now` without deleting the entry |
+```bash
+vemora remember "Switched from REST to tRPC for end-to-end type safety" \
+  --category decision \
+  --commit HEAD \        # auto-resolve to current SHA
+  --files src/api/,src/client/
+```
+
+`--commit HEAD` auto-resolves via `git rev-parse HEAD`. `--files` accepts a comma-separated list of paths.
 
 ### Context injection
 
-`vemora context` and `vemora brief` should silently exclude entries whose `validUntil` is in the past. This prevents the LLM from acting on outdated facts without requiring manual cleanup.
+`vemora context --file <path>` already injects `KnowledgeEntry` items. With `relatedFiles` populated, a filter can surface only entries relevant to the requested file:
 
-### Implementation sketch
-
-```typescript
-// src/storage/knowledge.ts — add filter helper
-
-export function filterValidAt(
-  entries: KnowledgeEntry[],
-  asOf: Date = new Date(),
-): KnowledgeEntry[] {
-  return entries.filter((e) => {
-    if (e.validFrom && new Date(e.validFrom) > asOf) return false;
-    if (e.validUntil && new Date(e.validUntil) <= asOf) return false;
-    return true;
-  });
-}
+```
+Decisions affecting this file:
+- [2026-03-10] Switched from REST to tRPC — (commit a1b2c3d)
 ```
 
 ### Integration points
 
-1. **`src/core/types.ts`** — add `validFrom?` and `validUntil?` to `KnowledgeEntry`
-2. **`src/storage/knowledge.ts`** — add `filterValidAt()` helper
-3. **`src/commands/knowledge.ts`** — honour `--as-of` and `--expired` filters in `runKnowledgeList`; add `--invalidate <id>` to `runKnowledgeForget`
-4. **`src/commands/context.ts`** — call `filterValidAt()` before injecting knowledge entries
-5. **`src/commands/brief.ts`** — call `filterValidAt()` before rendering entries
+1. **`src/core/types.ts`** — add `linkedCommit?`, `relatedFiles?`, `supersedes?` to `KnowledgeEntry`
+2. **`src/commands/remember.ts`** — add `--commit`, `--files` flags; resolve `HEAD` via `git rev-parse`
+3. **`src/commands/context.ts`** — when `--file` is set, prefer entries whose `relatedFiles` includes that path
 
 ### Known risks
 
-- **Migration**: existing entries without `validFrom` / `validUntil` are treated as always-valid. No migration script needed.
-- **Clock drift**: `validUntil` is set by the developer's local clock. Cross-timezone teams should use UTC consistently (ISO strings already are UTC by convention).
+- **Stale `relatedFiles`**: paths may be renamed or deleted. Check lazily during `context` and flag stale entries rather than silently injecting them.
+
+---
 
 ---
 
@@ -456,12 +250,177 @@ If the command is run non-interactively (no TTY), the warning is printed but bot
 
 ---
 
+---
+
+## Feature 6 — MCP server mode
+
+**Effort:** medium | **LLM value:** very high
+
+### Goal
+
+Expose vemora as a Model Context Protocol (MCP) server so that any MCP-compatible client (Claude Desktop, Cursor, Zed, Goose, …) can call `query`, `focus`, `context`, and `remember` as native tools — without going through the CLI. This turns vemora from a standalone CLI into shared RAG infrastructure usable by any agent.
+
+### MCP tools to expose
+
+| MCP tool | Maps to | Description |
+|---|---|---|
+| `vemora_query` | `vemora query` | Semantic search over the index |
+| `vemora_focus` | `vemora focus` | Full context for a file or symbol |
+| `vemora_context` | `vemora context` | Generate a context block for a task |
+| `vemora_remember` | `vemora remember` | Persist a knowledge entry |
+| `vemora_brief` | `vemora brief` | Return the session primer |
+
+### Implementation sketch
+
+```typescript
+// src/commands/serve.ts
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+
+export async function runServe(rootDir: string): Promise<void> {
+  const server = new McpServer({ name: "vemora", version: pkg.version });
+
+  server.tool("vemora_query", { query: z.string(), keyword: z.boolean().optional() },
+    async ({ query, keyword }) => {
+      // call runQuery internals, return formatted results
+    }
+  );
+  // … other tools …
+
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
+```
+
+CLI entry: `vemora serve --root .` (long-running process, speaks MCP over stdio).
+
+### Integration points
+
+1. **`src/commands/serve.ts`** — new file: MCP server setup + tool registrations
+2. **`src/cli.ts`** — register `serve` subcommand
+3. **`package.json`** — add `@modelcontextprotocol/sdk` dependency
+
+### Known risks
+
+- MCP SDK is still evolving; pin to a specific version.
+- Each tool call re-loads index from disk unless a module-level cache is held in the server process. Add an in-memory cache of `RepositoryStorage` keyed by `rootDir`.
+
+---
+
+## Feature 7 — Prompt injection detection
+
+**Effort:** low | **LLM value:** medium
+
+### Goal
+
+Detect and neutralise prompt injection attempts in indexed source files before their content is injected into LLM prompts. A malicious repo (or a supply-chain-compromised dependency) could embed strings like `// SYSTEM: ignore previous instructions` in comments or string literals that vemora would faithfully forward to the LLM.
+
+### Detection strategy
+
+Static pattern scan at chunk-injection time (no LLM round-trip needed):
+
+```typescript
+// src/utils/injection.ts
+
+const INJECTION_PATTERNS = [
+  /\bsystem\s*:/i,
+  /ignore\s+(previous|prior|above)\s+instructions/i,
+  /you\s+are\s+now\s+(?:a\s+)?(?:an?\s+)?\w+/i,
+  /<\s*\/?(?:system|assistant|user)\s*>/i,
+  /\[INST\]|\[\/INST\]/,              // Llama instruction markers
+  /###\s*(?:System|Instruction)/i,
+];
+
+export function containsInjection(text: string): boolean {
+  return INJECTION_PATTERNS.some((re) => re.test(text));
+}
+
+export function sanitiseChunk(text: string): string {
+  // Replace suspicious lines with a redaction marker rather than dropping them,
+  // so the LLM still sees the file structure.
+  return text
+    .split("\n")
+    .map((line) =>
+      INJECTION_PATTERNS.some((re) => re.test(line))
+        ? `/* [vemora: redacted potential prompt injection] */`
+        : line,
+    )
+    .join("\n");
+}
+```
+
+### Integration points
+
+1. **`src/utils/injection.ts`** — new file: patterns + `sanitiseChunk()`
+2. **`src/search/formatter.ts`** — call `sanitiseChunk()` on each chunk before formatting output
+3. **`config.json`** — optional `"security": { "sanitiseInjections": true }` flag (default `true`)
+
+### Known risks
+
+- False positives on legitimate code that mentions system prompts (e.g. an LLM wrapper library). The redaction marker preserves file structure so the LLM can still reason about the file.
+- Pattern list needs periodic updates as new injection techniques emerge. Keep it in a separate constant so it is easy to extend.
+
+---
+
+## Feature 8 — Recipes (reusable workflow YAML)
+
+**Effort:** medium | **LLM value:** low–medium
+
+### Goal
+
+Allow users to define named, reusable workflows as YAML files that chain vemora commands. Example use cases: `security-audit`, `onboarding`, `changelog`. Reduces repetitive multi-command invocations.
+
+```yaml
+# .vemora/recipes/security-audit.yaml
+name: security-audit
+description: Run a full security triage and save findings to knowledge
+steps:
+  - run: triage --type security,bugs
+    capture: findings
+  - run: remember "Security triage findings: {{findings}}"
+```
+
+```bash
+vemora recipe security-audit --root .
+```
+
+### Implementation sketch
+
+```typescript
+// src/commands/recipe.ts
+interface RecipeStep {
+  run: string;       // vemora subcommand + args (template variables allowed)
+  capture?: string;  // variable name to capture stdout into
+}
+interface Recipe {
+  name: string;
+  description?: string;
+  steps: RecipeStep[];
+}
+```
+
+Steps are executed sequentially; `{{varName}}` interpolation passes output between steps.
+
+### Integration points
+
+1. **`src/commands/recipe.ts`** — new file: YAML loader + step runner
+2. **`src/cli.ts`** — register `recipe <name>` subcommand
+3. **`package.json`** — add `js-yaml` (or use Node 22 built-in YAML if available)
+
+### Known risks
+
+- Template interpolation is a potential injection vector if recipe files come from untrusted sources. Sanitise interpolated values or restrict recipes to the project's own `.vemora/` directory.
+- Sequential execution only in v1; parallel steps (for independent queries) add complexity and can be deferred.
+
+---
+
 ## Effort comparison
 
 | Feature | New files | Modified files | External deps | Estimated effort |
 |---|---|---|---|---|
-| 1 — Complexity | `src/indexer/complexity.ts` | `types.ts`, `context.ts` (minor) | none | ~3–4 h |
 | 2 — Coverage | `src/indexer/coverage.ts` | `types.ts`, `context.ts`, `status.ts` | none (LCOV parser is ~50 lines) | ~1–2 days |
-| 3 — Temporal decision graph | `src/storage/decisions.ts`, `src/commands/decide.ts` | `types.ts`, `context.ts`, `cli.ts`, `utils/git.ts` | none | ~2–3 days |
-| 4 — Temporal knowledge graph | none | `types.ts`, `knowledge.ts`, `context.ts`, `brief.ts`, `knowledge list` cmd | none | ~1 day |
+| 3 — Decision metadata on KnowledgeEntry | none | `types.ts`, `remember.ts`, `context.ts` | none | ~2–3 h |
 | 5 — Contradiction detection | none | `remember.ts` | none (readline is stdlib) | ~4–6 h |
+| 6 — MCP server | `src/commands/serve.ts` | `cli.ts`, `package.json` | `@modelcontextprotocol/sdk` | ~1–2 days |
+| 7 — Prompt injection detection | `src/utils/injection.ts` | `formatter.ts` | none | ~2–4 h |
+| 8 — Recipes | `src/commands/recipe.ts` | `cli.ts`, `package.json` | `js-yaml` | ~1 day |

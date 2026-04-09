@@ -667,12 +667,16 @@ knowledge
   )
   .option("--file <path>", "filter by related file path (substring match)")
   .option("--symbol <name>", "filter by related symbol name")
+  .option("--as-of <date>", "show only entries valid at this ISO date")
+  .option("--expired", "show only entries that have been invalidated", false)
   .action(
     async (opts: {
       root: string;
       category?: string;
       file?: string;
       symbol?: string;
+      asOf?: string;
+      expired: boolean;
     }) => {
       const rootDir = path.resolve(opts.root || process.cwd());
       try {
@@ -680,6 +684,8 @@ knowledge
           category: opts.category,
           file: opts.file,
           symbol: opts.symbol,
+          asOf: opts.asOf,
+          expired: opts.expired,
         });
       } catch (err) {
         console.error(chalk.red("Error:"), (err as Error).message);
@@ -692,10 +698,11 @@ knowledge
   .command("forget <id>")
   .description("Remove a knowledge entry by ID (prefix match supported)")
   .option("--root <dir>", "project root directory (default: cwd)", "")
-  .action(async (id: string, opts: { root: string }) => {
+  .option("--invalidate", "mark as expired instead of deleting (preserves history)", false)
+  .action(async (id: string, opts: { root: string; invalidate: boolean }) => {
     const rootDir = path.resolve(opts.root || process.cwd());
     try {
-      await runKnowledgeForget(rootDir, id);
+      await runKnowledgeForget(rootDir, id, { invalidate: opts.invalidate });
     } catch (err) {
       console.error(chalk.red("Error:"), (err as Error).message);
       process.exit(1);

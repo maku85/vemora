@@ -462,7 +462,7 @@ vemora/
     │   ├── repository.ts   R/W .vemora/ JSON files
     │   ├── cache.ts        R/W ~/.vemora-cache/ embeddings
     │   ├── summaries.ts    R/W .vemora/summaries/ (file + project summaries)
-    │   ├── knowledge.ts    R/W .vemora/knowledge/entries.json
+    │   ├── knowledge.ts    R/W .vemora/knowledge/entries.json (+ filterValidAt, invalidate)
     │   ├── session.ts      per-session seen-chunk tracking (~/.vemora-cache/<id>/session.json)
     │   └── usage.ts        append-only usage log (~/.vemora-cache/<id>/usage.log.json)
     ├── indexer/
@@ -500,6 +500,6 @@ vemora/
         ├── summarize.ts    vemora summarize
         ├── remember.ts     vemora remember <text> (knowledge store write, LLM auto-classify)
         ├── brief.ts        vemora brief (session primer: overview + critical knowledge)
-        ├── knowledge.ts    vemora knowledge list / forget
+        ├── knowledge.ts    vemora knowledge list (--as-of, --expired) / forget (--invalidate)
         └── report.ts       vemora report (usage stats, token savings, latency, hot files, low-signal queries)
 ```

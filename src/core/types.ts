@@ -297,6 +297,10 @@ export interface KnowledgeEntry {
   confidence: "high" | "medium" | "low";
   /** ID of the entry this supersedes (for updates) */
   supersedes?: string;
+  /** ISO timestamp when this fact became true (defaults to always-valid if absent) */
+  validFrom?: string;
+  /** ISO timestamp when this fact stopped being true. Absent = still valid. */
+  validUntil?: string;
 }
 
 // ─── TODO Annotations ─────────────────────────────────────────────────────────

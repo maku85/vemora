@@ -24,7 +24,7 @@ import { formatTerse } from "../search/formatter";
 import { extractSignature, HIGH_CODE_LINES } from "../search/signature";
 import { keywordSearch, symbolLookup, vectorSearch } from "../search/vector";
 import { EmbeddingCacheStorage } from "../storage/cache";
-import { KnowledgeStorage } from "../storage/knowledge";
+import { KnowledgeStorage, filterValidAt } from "../storage/knowledge";
 import { RepositoryStorage } from "../storage/repository";
 import { SessionStorage } from "../storage/session";
 import type { UsageEvent } from "../storage/usage";
@@ -102,7 +102,7 @@ export async function runContext(
     ? summaryStorage.loadFileSummaries()
     : {};
   const projectSummary = summaryStorage.loadProjectSummary();
-  const knowledgeEntries = new KnowledgeStorage(rootDir).load();
+  const knowledgeEntries = filterValidAt(new KnowledgeStorage(rootDir).load());
 
   if (chunks.length === 0) {
     console.error(chalk.red("No index found. Run `vemora index` first."));

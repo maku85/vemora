@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import { loadConfig } from "../core/config";
 import type { KnowledgeEntry } from "../core/types";
-import { KnowledgeStorage } from "../storage/knowledge";
+import { KnowledgeStorage, filterValidAt } from "../storage/knowledge";
 
 // ─── List ─────────────────────────────────────────────────────────────────────
 
@@ -9,6 +9,10 @@ export interface KnowledgeListOptions {
   category?: string;
   file?: string;
   symbol?: string;
+  /** Show only entries valid at this ISO date (default: now) */
+  asOf?: string;
+  /** Show only entries with a validUntil in the past */
+  expired?: boolean;
 }
 
 export async function runKnowledgeList(
@@ -30,6 +34,14 @@ export async function runKnowledgeList(
   }
 
   // Filter
+  if (options.expired) {
+    const now = new Date();
+    entries = entries.filter((e) => e.validUntil && new Date(e.validUntil) <= now);
+  } else if (options.asOf) {
+    entries = filterValidAt(entries, new Date(options.asOf));
+  } else {
+    entries = filterValidAt(entries);
+  }
   if (options.category) {
     entries = entries.filter((e) => e.category === options.category);
   }
@@ -119,6 +131,7 @@ export async function runKnowledgeList(
 export async function runKnowledgeForget(
   rootDir: string,
   id: string,
+  options: { invalidate?: boolean } = {},
 ): Promise<void> {
   loadConfig(rootDir);
 
@@ -135,8 +148,16 @@ export async function runKnowledgeForget(
     process.exit(1);
   }
 
-  storage.remove(match.id);
-  console.log(
-    chalk.green(`✔ Removed entry [${match.id.slice(0, 8)}] "${match.title}".`),
-  );
+  if (options.invalidate) {
+    storage.invalidate(match.id);
+    console.log(
+      chalk.green(`✔ Invalidated entry [${match.id.slice(0, 8)}] "${match.title}".`) +
+        chalk.gray(" (entry preserved in history, excluded from context)"),
+    );
+  } else {
+    storage.remove(match.id);
+    console.log(
+      chalk.green(`✔ Removed entry [${match.id.slice(0, 8)}] "${match.title}".`),
+    );
+  }
 }

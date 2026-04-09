@@ -48,6 +48,15 @@ export class KnowledgeStorage {
     return true;
   }
 
+  invalidate(id: string): boolean {
+    const entries = this.load();
+    const match = entries.find((e) => e.id === id);
+    if (!match) return false;
+    match.validUntil = new Date().toISOString();
+    this.save(entries);
+    return true;
+  }
+
   hasKnowledge(): boolean {
     return fs.existsSync(this.entriesPath);
   }
@@ -55,4 +64,19 @@ export class KnowledgeStorage {
   getKnowledgeDir(): string {
     return this.knowledgeDir;
   }
+}
+
+/**
+ * Returns only entries that are valid at the given point in time.
+ * Entries without validFrom/validUntil are treated as always-valid.
+ */
+export function filterValidAt(
+  entries: KnowledgeEntry[],
+  asOf: Date = new Date(),
+): KnowledgeEntry[] {
+  return entries.filter((e) => {
+    if (e.validFrom && new Date(e.validFrom) > asOf) return false;
+    if (e.validUntil && new Date(e.validUntil) <= asOf) return false;
+    return true;
+  });
 }
