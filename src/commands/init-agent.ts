@@ -79,6 +79,7 @@ Use this decision tree to choose the right command:
 | Complex multi-step task | \`plan "<task>" --root . --confirm --synthesize\` |
 | Security / performance / bug audit | \`audit --root . --type security,bugs\` |
 | Quick static scan — no API key needed | \`triage --root . --type bugs,security\` |
+| Find unused code — no API key needed | \`dead-code --root .\` |
 | Output is too long for your context window | add \`--budget 2000\` (or lower) to any command |
 | No embeddings available / fast keyword search | add \`--keyword\` to any \`query\` or \`context\` call |
 | Need to understand who imports a file | \`deps <file> --root .\` |
@@ -535,6 +536,8 @@ export function buildGeneratedBlock(
   lines.push("");
   lines.push("# Zero-LLM static scan — no API key needed");
   lines.push("vemora triage --root . --type bugs,security");
+  lines.push("vemora dead-code --root .                          # unused private symbols, exports, files");
+  lines.push("vemora dead-code --root . --type uncalled-private  # only private methods/functions with no callers");
   lines.push("");
   lines.push("# Dependency graph");
   lines.push("vemora deps src/path/to/file.ts --root . --reverse-depth 2");

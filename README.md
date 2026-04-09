@@ -20,6 +20,7 @@ When working on a large codebase with Claude Code or similar LLM tools, you face
 - **`vemora plan`** — a pro LLM (planner) decomposes a complex task into concrete steps; a smaller/free LLM (executor) carries out each step against targeted code context. Cuts costs by using expensive models only where they matter.
 - **`vemora audit`** — systematic, checklist-driven analysis of your codebase for security vulnerabilities, performance issues, and bugs. Covers every file, produces structured findings with severity levels.
 - **`vemora triage`** — zero-LLM static heuristic scan for bugs, security issues, and performance problems. Instant results with no API calls, useful as a first pass before a deeper audit.
+- **`vemora dead-code`** — zero-LLM static analysis that detects unused private symbols, exports nobody imports, and files that are never imported. Works entirely from the call graph and dependency graph already in the index.
 - **`vemora focus`** — aggregates all structural context about a file or symbol in one shot: implementation, exports, dependency graph, callers, test files, and saved knowledge.
 
 ## Architecture in three layers
@@ -540,6 +541,38 @@ vemora triage --type security --file src/api --root .
 ```
 
 Heuristics cover: empty catch blocks, unguarded `JSON.parse`, sync I/O in loops, `any` casts, hardcoded secrets, dangerous `eval`/`exec`, prototype pollution, SQL/command injection patterns, and more.
+
+### `vemora dead-code`
+
+Zero-LLM static analysis for unused code. Works entirely from the existing index — no API key or network access required.
+
+```
+Options:
+  --root <dir>        project root (default: cwd)
+  --type <types>      comma-separated: uncalled-private, unused-export, unreachable-file (default: all)
+  --output <fmt>      terminal (default) | json
+```
+
+Three detection categories:
+
+| Type | What it finds |
+|---|---|
+| `uncalled-private` | Private functions and methods with an entry in the call graph but no recorded callers |
+| `unused-export` | Exported symbols not imported by any file in the dep graph (namespace imports excluded) |
+| `unreachable-file` | Files that export symbols but are never imported by any other file in the project |
+
+```bash
+# Full scan — all three categories
+vemora dead-code --root .
+
+# Only private methods with no callers
+vemora dead-code --type uncalled-private --root .
+
+# Machine-readable output
+vemora dead-code --output json --root . | jq '.[] | select(.type == "unused-export")'
+```
+
+**Caveats:** call graph coverage is incomplete for dynamic dispatch, arrow functions assigned to variables, and `require()` calls. Namespace imports (`import * as X`) prevent false positives on `unused-export` by marking the whole file as used. Entry points (`cli.ts`, `index.ts`, `main.ts`, etc.) are excluded from `unreachable-file`.
 
 ### `vemora focus <target>`
 

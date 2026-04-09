@@ -23,6 +23,7 @@ import { runAudit } from "./commands/audit";
 import { runFocus } from "./commands/focus";
 import { runPlan } from "./commands/plan";
 import { runTriage } from "./commands/triage";
+import { runDeadCode } from "./commands/dead-code";
 import { runChat } from "./commands/chat";
 import { runContext } from "./commands/context";
 import { runDeps } from "./commands/deps";
@@ -929,6 +930,60 @@ program
           file: opts.file,
           output: outputFmt,
         });
+      } catch (err) {
+        console.error(chalk.red("Error:"), (err as Error).message);
+        process.exit(1);
+      }
+    },
+  );
+
+// ── dead-code ─────────────────────────────────────────────────────────────────
+
+program
+  .command("dead-code")
+  .description(
+    "Detect unused private symbols, exports nobody imports, and unreachable files — no LLM required",
+  )
+  .option("--root <dir>", "project root directory (default: cwd)", "")
+  .option(
+    "--type <types>",
+    "comma-separated types: uncalled-private, unused-export, unreachable-file (default: all)",
+  )
+  .option(
+    "--output <fmt>",
+    "output format: terminal (default), json",
+    "terminal",
+  )
+  .action(
+    async (opts: { root: string; type?: string; output: string }) => {
+      const rootDir = path.resolve(opts.root || process.cwd());
+
+      const validTypes = ["uncalled-private", "unused-export", "unreachable-file"] as const;
+      type DeadCodeType = (typeof validTypes)[number];
+
+      let types: DeadCodeType[] | undefined;
+      if (opts.type) {
+        const requested = opts.type.split(",").map((t) => t.trim()) as DeadCodeType[];
+        const invalid = requested.filter((t) => !validTypes.includes(t));
+        if (invalid.length > 0) {
+          console.error(
+            chalk.red(
+              `Unknown type(s): ${invalid.join(", ")}. Valid: uncalled-private, unused-export, unreachable-file`,
+            ),
+          );
+          process.exit(1);
+        }
+        types = requested;
+      }
+
+      const outputFmt = opts.output as "terminal" | "json";
+      if (!["terminal", "json"].includes(outputFmt)) {
+        console.error(chalk.red(`Unknown output format "${opts.output}". Use: terminal, json`));
+        process.exit(1);
+      }
+
+      try {
+        await runDeadCode(rootDir, { types, output: outputFmt });
       } catch (err) {
         console.error(chalk.red("Error:"), (err as Error).message);
         process.exit(1);

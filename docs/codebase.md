@@ -831,6 +831,25 @@ The transitive display groups results by BFS depth level.
 
 ---
 
+## `src/commands/dead-code.ts` — `vemora dead-code`
+
+`runDeadCode(rootDir, { types?, output? })` — static dead-code analysis from the existing index. No LLM or API key required.
+
+Three detectors, each returning `DeadCodeFinding[]` sorted by file + line:
+
+**`findUncalledPrivate(symbols, callGraph)`**
+Iterates all non-exported `function` and `method` symbols. For each, looks up `callGraph["file:shortName"]`. Only flags when a call graph entry explicitly exists with `calledBy.length === 0` — symbols absent from the call graph entirely are skipped (call graph coverage may be incomplete). Constructors are excluded.
+
+**`findUnusedExports(symbols, depGraph)`**
+Builds a map of `file → Set<importedSymbolNames>` from the dep graph. Files imported via namespace (`import * as X`, represented as `symbols: []`) are excluded from flagging entirely. An exported symbol is flagged if its name doesn't appear in any `ImportEntry.symbols` for its file. `interface` and `type` symbols are excluded (erased at runtime, dep graph may not track them).
+
+**`findUnreachableFiles(symbols, depGraph)`**
+Uses `computeImportedBy` to find files not in the importedBy map. Only flags files that have at least one exported symbol (intended to be a module). Excludes common entry point filenames: `cli.ts`, `index.ts`, `main.ts`, `server.ts`, `app.ts`.
+
+Output formats: `terminal` (default, color-coded with file:line references) and `json` (flat array of `DeadCodeFinding` objects).
+
+---
+
 ## Important constants to know
 
 ```typescript
