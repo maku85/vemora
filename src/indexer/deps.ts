@@ -73,6 +73,9 @@ function resolveAlias(
       const resolved = target.replace("*", rest);
       const base = path.normalize(path.join(baseUrl, resolved));
 
+      // Reject paths that escape the project root (e.g. alias targets like "../../")
+      if (base.startsWith("..")) continue;
+
       const extCandidates = ["", ".ts", ".tsx", ".js", ".jsx"];
       for (const ext of extCandidates) {
         const candidate = path.normalize(base + ext);
