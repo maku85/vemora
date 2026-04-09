@@ -27,6 +27,18 @@ export function formatTokenStats(text: string): string {
 }
 
 /**
+ * Truncates a string to fit within a token budget.
+ * Always includes at least a small prefix even if the budget is tiny.
+ */
+export function truncateToTokenBudget(text: string, budget: number): { text: string; truncated: boolean } {
+  if (budget <= 0) return { text, truncated: false };
+  const tokens = countTokensHeuristic(text);
+  if (tokens <= budget) return { text, truncated: false };
+  const maxChars = Math.floor(budget * 3.2);
+  return { text: text.slice(0, maxChars), truncated: true };
+}
+
+/**
  * Filters a ranked list of SearchResults to fit within a token budget.
  *
  * Iterates in score order, accumulating chunk token counts until the budget

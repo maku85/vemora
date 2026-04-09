@@ -949,8 +949,9 @@ program
     "output format: markdown (default), plain",
     "markdown",
   )
+  .option("--budget <n>", "max tokens to include in output")
   .action(
-    async (target: string, opts: { root: string; format: string }) => {
+    async (target: string, opts: { root: string; format: string; budget?: string }) => {
       const rootDir = path.resolve(opts.root || process.cwd());
       const fmt = opts.format as "markdown" | "plain";
       if (!["markdown", "plain"].includes(fmt)) {
@@ -958,7 +959,10 @@ program
         process.exit(1);
       }
       try {
-        await runFocus(rootDir, target, { format: fmt });
+        await runFocus(rootDir, target, {
+          format: fmt,
+          budget: opts.budget ? parseInt(opts.budget, 10) : undefined,
+        });
       } catch (err) {
         console.error(chalk.red("Error:"), (err as Error).message);
         process.exit(1);
@@ -975,10 +979,14 @@ program
   )
   .option("--root <dir>", "project root directory (default: cwd)", "")
   .option("--all", "include all knowledge entries, not only high-confidence ones", false)
-  .action(async (opts: { root: string; all: boolean }) => {
+  .option("--budget <n>", "max tokens to include in output")
+  .action(async (opts: { root: string; all: boolean; budget?: string }) => {
     const rootDir = path.resolve(opts.root || process.cwd());
     try {
-      await runBrief(rootDir, { all: opts.all });
+      await runBrief(rootDir, {
+        all: opts.all,
+        budget: opts.budget ? parseInt(opts.budget, 10) : undefined,
+      });
     } catch (err) {
       console.error(chalk.red("Error:"), (err as Error).message);
       process.exit(1);

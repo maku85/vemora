@@ -15,12 +15,15 @@ import { findTestFiles } from "../indexer/tests";
 import { KnowledgeStorage } from "../storage/knowledge";
 import { RepositoryStorage } from "../storage/repository";
 import { SummaryStorage } from "../storage/summaries";
+import { truncateToTokenBudget } from "../utils/tokenizer";
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
 export interface FocusOptions {
   /** Output format (default: markdown — best for LLM consumption) */
   format?: "markdown" | "plain";
+  /** Max tokens to include in output. Output is truncated if exceeded. */
+  budget?: number;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -373,9 +376,17 @@ export async function runFocus(
     }
   }
 
-  const output = resolvedFile
+  let output = resolvedFile
     ? buildFileFocus(resolvedFile, chunks, symbols, depGraph, callGraph, fileSummaries, knowledge, fileIndex, format)
     : buildSymbolFocus(resolvedSymbol!, chunks, symbols, depGraph, callGraph, fileSummaries, knowledge, fileIndex, format);
+
+  if (options.budget && options.budget > 0) {
+    const { text, truncated } = truncateToTokenBudget(output, options.budget);
+    output = text;
+    if (truncated) {
+      output += `\n\n[...truncated to ${options.budget} token budget]`;
+    }
+  }
 
   console.log(output);
 }

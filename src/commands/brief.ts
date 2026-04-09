@@ -2,10 +2,13 @@ import chalk from "chalk";
 import { loadConfig } from "../core/config";
 import { KnowledgeStorage, filterValidAt } from "../storage/knowledge";
 import { SummaryStorage } from "../storage/summaries";
+import { truncateToTokenBudget } from "../utils/tokenizer";
 
 export interface BriefOptions {
   /** Include all knowledge entries, not only high-confidence ones. */
   all?: boolean;
+  /** Max tokens to include in output. Output is truncated if exceeded. */
+  budget?: number;
 }
 
 /**
@@ -30,29 +33,31 @@ export async function runBrief(
     ? allEntries
     : allEntries.filter((e) => e.confidence === "high");
 
+  const lines: string[] = [];
+
   // ── Header ───────────────────────────────────────────────────────────────────
-  console.log(chalk.bold(`# ${config.projectName} — session brief`));
-  console.log();
+  lines.push(chalk.bold(`# ${config.projectName} — session brief`));
+  lines.push("");
 
   // ── L0: Project overview ─────────────────────────────────────────────────────
   if (projectSummary) {
-    console.log(chalk.bold("## Overview"));
-    console.log(projectSummary.overview);
-    console.log();
+    lines.push(chalk.bold("## Overview"));
+    lines.push(projectSummary.overview);
+    lines.push("");
   } else {
-    console.log(
+    lines.push(
       chalk.gray(
         "No project overview available. Run `vemora summarize` to generate one.",
       ),
     );
-    console.log();
+    lines.push("");
   }
 
   // ── L1: High-confidence knowledge ────────────────────────────────────────────
   if (entries.length > 0) {
     const label = options.all ? "Knowledge" : "Critical knowledge";
-    console.log(chalk.bold(`## ${label} (${entries.length})`));
-    console.log();
+    lines.push(chalk.bold(`## ${label} (${entries.length})`));
+    lines.push("");
 
     const byCategory = new Map<string, typeof entries>();
     for (const e of entries) {
@@ -62,28 +67,40 @@ export async function runBrief(
     }
 
     for (const [cat, catEntries] of byCategory) {
-      console.log(chalk.underline(cat));
+      lines.push(chalk.underline(cat));
       for (const e of catEntries) {
-        console.log(`- **${e.title}**`);
+        lines.push(`- **${e.title}**`);
         // Print body but cap at 120 chars to keep the primer tight
         const body =
           e.body.length > 120 ? e.body.slice(0, 117) + "…" : e.body;
-        console.log(`  ${chalk.gray(body)}`);
+        lines.push(`  ${chalk.gray(body)}`);
       }
-      console.log();
+      lines.push("");
     }
   } else {
     const hint = options.all
       ? "No knowledge entries found. Use `vemora remember` to add some."
       : "No high-confidence entries found. Use `vemora knowledge list` to review all entries.";
-    console.log(chalk.gray(hint));
-    console.log();
+    lines.push(chalk.gray(hint));
+    lines.push("");
   }
 
   // ── Footer hint ──────────────────────────────────────────────────────────────
-  console.log(
+  lines.push(
     chalk.gray(
       `Tip: run \`vemora knowledge list --root .\` for the full knowledge base.`,
     ),
   );
+
+  let output = lines.join("\n");
+
+  if (options.budget && options.budget > 0) {
+    const { text, truncated } = truncateToTokenBudget(output, options.budget);
+    output = text;
+    if (truncated) {
+      output += `\n\n[...truncated to ${options.budget} token budget]`;
+    }
+  }
+
+  console.log(output);
 }
