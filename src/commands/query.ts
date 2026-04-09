@@ -107,6 +107,7 @@ export async function runQuery(
 
   let results: SearchResult[];
   let searchType: UsageEvent["searchType"] = "bm25";
+  const usageStart = Date.now();
 
   // ── Search execution ───────────────────────────────────────────────────────
 
@@ -328,6 +329,8 @@ export async function runQuery(
       tokensSavedDedup,
       tokensSavedSession,
       tokensSavedBudget,
+      durationMs: Date.now() - usageStart,
+      topFiles: [...new Set(results.map((r) => r.chunk.file))].slice(0, 3),
     });
   } catch {
     // usage tracking is best-effort — never block the main output

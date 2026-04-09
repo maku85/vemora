@@ -501,5 +501,5 @@ vemora/
         ├── remember.ts     vemora remember <text> (knowledge store write, LLM auto-classify)
         ├── brief.ts        vemora brief (session primer: overview + critical knowledge)
         ├── knowledge.ts    vemora knowledge list / forget
-        └── report.ts       vemora report (usage stats + token savings)
+        └── report.ts       vemora report (usage stats, token savings, latency, hot files, low-signal queries)
 ```

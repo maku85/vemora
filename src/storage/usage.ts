@@ -24,6 +24,10 @@ export interface UsageEvent {
   tokensSavedSession: number;
   /** Tokens saved by budget cap (0 if --budget not set) */
   tokensSavedBudget: number;
+  /** Wall-clock milliseconds from search start to results ready */
+  durationMs?: number;
+  /** Up to 3 unique file paths present in the returned chunks */
+  topFiles?: string[];
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────

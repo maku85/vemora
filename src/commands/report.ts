@@ -197,6 +197,78 @@ export async function runReport(
     console.log();
   }
 
+  // ── Latency ───────────────────────────────────────────────────────────────
+  const timed = events.filter((e) => e.durationMs != null);
+  if (timed.length > 0) {
+    const durations = timed.map((e) => e.durationMs as number).sort((a, b) => a - b);
+    const avgMs = Math.round(durations.reduce((s, v) => s + v, 0) / durations.length);
+    const p95Ms = durations[Math.floor(durations.length * 0.95)];
+    console.log(chalk.bold("Query latency"));
+    console.log(`  Avg   ${chalk.white(`${avgMs} ms`)}`);
+    console.log(`  p95   ${chalk.white(`${p95Ms} ms`)}`);
+    console.log();
+  }
+
+  // ── Hot files ─────────────────────────────────────────────────────────────
+  const fileFreq = new Map<string, number>();
+  for (const e of events) {
+    for (const f of e.topFiles ?? []) {
+      fileFreq.set(f, (fileFreq.get(f) ?? 0) + 1);
+    }
+  }
+  if (fileFreq.size > 0) {
+    const hotFiles = Array.from(fileFreq.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8);
+    const maxFileCount = hotFiles[0][1];
+    console.log(chalk.bold("Most retrieved files"));
+    for (const [file, count] of hotFiles) {
+      console.log(
+        `  ${chalk.cyan(file.padEnd(40))} ${bar(count, maxFileCount, 12)}  ${count}×`,
+      );
+    }
+    console.log();
+  }
+
+  // ── Low-signal queries ────────────────────────────────────────────────────
+  const zeroResults = events.filter((e) => e.resultsReturned === 0 && e.query);
+  const lowResults = events.filter((e) => e.resultsReturned > 0 && e.resultsReturned < 3 && e.query);
+
+  if (zeroResults.length > 0) {
+    console.log(chalk.bold(`Queries with no results`) + chalk.red(` (${zeroResults.length})`));
+    for (const e of zeroResults.slice(-8).reverse()) {
+      console.log(`  ${chalk.gray(e.ts.slice(0, 10))}  ${chalk.red("✗")}  ${chalk.white(e.query)}`);
+    }
+    console.log();
+  }
+
+  if (lowResults.length > 0) {
+    console.log(chalk.bold(`Queries with few results`) + chalk.yellow(` (${lowResults.length})`));
+    for (const e of lowResults.slice(-8).reverse()) {
+      console.log(
+        `  ${chalk.gray(e.ts.slice(0, 10))}  ${chalk.yellow(`${e.resultsReturned} chunk${e.resultsReturned === 1 ? "" : "s"}`)}  ${chalk.white(e.query)}`,
+      );
+    }
+    console.log();
+  }
+
+  // ── Repeated queries ──────────────────────────────────────────────────────
+  const queryFreq = new Map<string, number>();
+  for (const e of events) {
+    if (e.query) queryFreq.set(e.query, (queryFreq.get(e.query) ?? 0) + 1);
+  }
+  const repeated = Array.from(queryFreq.entries())
+    .filter(([, n]) => n > 1)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6);
+  if (repeated.length > 0) {
+    console.log(chalk.bold("Repeated queries") + chalk.gray(" (possible index gaps)"));
+    for (const [query, count] of repeated) {
+      console.log(`  ${chalk.yellow(`${count}×`).padEnd(6)}  ${chalk.white(query)}`);
+    }
+    console.log();
+  }
+
   // ── Verbose: per-query log ─────────────────────────────────────────────────
   if (options.verbose) {
     console.log(chalk.bold("Recent queries (last 20)"));

@@ -119,6 +119,7 @@ export async function runContext(
   let tokensSavedSession = 0;
   let tokensSavedDedup = 0;
   let tokensSavedBudget = 0;
+  const usageStart = Date.now();
 
   if (typeof options.query === "string" && options.query.length > 0) {
     const useKeyword = options.keyword || config.embedding.provider === "none";
@@ -261,6 +262,8 @@ export async function runContext(
         tokensSavedDedup,
         tokensSavedSession,
         tokensSavedBudget,
+        durationMs: Date.now() - usageStart,
+        topFiles: [...new Set(results.map((r) => r.chunk.file))].slice(0, 3),
       });
     } catch {
       // usage tracking is best-effort — never block the main output

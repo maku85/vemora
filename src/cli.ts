@@ -742,7 +742,7 @@ program
 
 program
   .command("report")
-  .description("Show usage statistics and token savings estimate")
+  .description("Show usage statistics: token savings, query latency, hot files, and low-signal queries")
   .option("--root <dir>", "project root directory (default: cwd)", "")
   .option("--days <n>", "limit report to events from the last N days")
   .option("-v, --verbose", "show per-query breakdown (last 20 queries)", false)
