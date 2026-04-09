@@ -30,30 +30,18 @@ function fileSummaryPrompt(
 ): string {
   const symbolList = symbols.length > 0 ? symbols.join(", ") : "none";
   return (
-    `You are summarizing a source code file for a code memory system used by AI assistants.\n` +
-    `Write 2-3 concise sentences describing:\n` +
-    `1. What this file does and its main responsibility\n` +
-    `2. Key symbols it exports (functions, classes, interfaces)\n` +
-    `3. Its role in the broader codebase (if apparent from the path and content)\n\n` +
-    `Be specific and technical. No preamble, no bullet points. Plain prose only.\n\n` +
-    `File: ${file}\n` +
-    `Key symbols: ${symbolList}\n\n` +
-    `Content:\n\`\`\`\n${content}\n\`\`\``
+    `Summarize this source file in 1-2 sentences for a code memory index.\n` +
+    `Cover: what it does, key exports (${symbolList}), its role in the codebase.\n` +
+    `Output only the summary sentence(s). No headers, no lists, no preamble.\n\n` +
+    `File: ${file}\n\`\`\`\n${content}\n\`\`\``
   );
 }
 
 function projectOverviewPrompt(projectName: string, summaries: string): string {
   return (
-    `You are creating a high-level overview of a software project called "${projectName}" ` +
-    `for an AI assistant's persistent memory system.\n\n` +
-    `This overview will always be included in the AI's context when working on this project, ` +
-    `so it must be information-dense and accurate.\n\n` +
-    `Write 400-500 words covering:\n` +
-    `1. What this project does (its purpose and main features)\n` +
-    `2. Main architectural layers and components\n` +
-    `3. Key data flows and how components interact\n` +
-    `4. Entry points for common development tasks\n\n` +
-    `Be technical and precise. No preamble.\n\n` +
+    `Write a technical overview of the "${projectName}" codebase for an AI assistant's memory index.\n` +
+    `Cover: purpose, main architectural layers, key data flows, entry points for development tasks.\n` +
+    `Be dense and precise. 200-300 words. No preamble, no headers, plain prose only.\n\n` +
     `File summaries:\n${summaries}`
   );
 }
@@ -125,57 +113,46 @@ export async function runSummarize(
       const updated: FileSummaryIndex = { ...prevSummaries };
       let failed = 0;
 
-      // Ollama processes one request at a time, but batching 2-3 in parallel
-      // overlaps I/O and queue wait time without overwhelming the GPU.
-      const BATCH_SIZE = summarizationConfig.provider === "ollama" ? 2 : 5;
+      for (let i = 0; i < toSummarize.length; i++) {
+        const [relPath, entry] = toSummarize[i];
+        const label = `[${i + 1}/${toSummarize.length}] ${relPath}`;
+        const spinner = ora(chalk.gray(label)).start();
 
-      for (let i = 0; i < toSummarize.length; i += BATCH_SIZE) {
-        const batch = toSummarize.slice(i, i + BATCH_SIZE);
+        try {
+          // Read file content, truncate to ~4000 chars to stay within prompt limits
+          const absolutePath = path.join(rootDir, relPath);
+          let content = "";
+          if (fs.existsSync(absolutePath)) {
+            const raw = fs.readFileSync(absolutePath, "utf-8");
+            content =
+              raw.length > 4000
+                ? raw.slice(0, 4000) + "\n... (truncated)"
+                : raw;
+          }
 
-        await Promise.all(
-          batch.map(async ([relPath, entry], batchIdx) => {
-            const globalIdx = i + batchIdx;
-            const label = `[${globalIdx + 1}/${toSummarize.length}] ${relPath}`;
-            const spinner = ora(chalk.gray(label)).start();
+          const fileSymbols = entry.symbols ?? [];
 
-            try {
-              // Read file content, truncate to ~4000 chars to stay within prompt limits
-              const absolutePath = path.join(rootDir, relPath);
-              let content = "";
-              if (fs.existsSync(absolutePath)) {
-                const raw = fs.readFileSync(absolutePath, "utf-8");
-                content =
-                  raw.length > 4000
-                    ? raw.slice(0, 4000) + "\n... (truncated)"
-                    : raw;
-              }
+          const response = await llm.chat(
+            [{ role: "user", content: fileSummaryPrompt(relPath, fileSymbols, content) }],
+            { model, maxTokens: 1024, temperature: 0 },
+          );
 
-              const fileSymbols = entry.symbols ?? [];
+          const summary = response.content.trim();
 
-              const response = await llm.chat(
-                [{ role: "user", content: fileSummaryPrompt(relPath, fileSymbols, content) }],
-                { model, maxTokens: 250, temperature: 0 },
-              );
+          updated[relPath] = {
+            summary,
+            contentHash: entry.hash,
+            generatedAt: new Date().toISOString(),
+          };
 
-              const summary = response.content.trim();
-
-              updated[relPath] = {
-                summary,
-                contentHash: entry.hash,
-                generatedAt: new Date().toISOString(),
-              };
-
-              spinner.succeed(chalk.gray(relPath));
-              anyFileSummaryChanged = true;
-            } catch (err) {
-              spinner.fail(chalk.red(`${relPath}: ${(err as Error).message}`));
-              failed++;
-            }
-          }),
-        );
-
-        // Save incrementally after each batch so progress is not lost on failure
-        summaryStorage.saveFileSummaries(updated);
+          // Save after every file so progress is never lost on interruption
+          summaryStorage.saveFileSummaries(updated);
+          spinner.succeed(chalk.gray(relPath));
+          anyFileSummaryChanged = true;
+        } catch (err) {
+          spinner.fail(chalk.red(`${relPath}: ${(err as Error).message}`));
+          failed++;
+        }
       }
 
       console.log();
@@ -231,7 +208,7 @@ export async function runSummarize(
   try {
     const response = await llm.chat(
       [{ role: "user", content: projectOverviewPrompt(config.projectName, summaryBlock) }],
-      { model, maxTokens: 750, temperature: 0.1 },
+      { model, maxTokens: 2048, temperature: 0.1 },
     );
 
     const overview = response.content.trim();

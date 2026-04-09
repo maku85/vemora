@@ -103,6 +103,16 @@ export function getDefaultConfig(
       // Other generated/binary files
       "**/*.lock",
       "**/*.log",
+      // Agent instruction files — not codebase documentation
+      "**/CLAUDE.md",
+      "**/GEMINI.md",
+      "**/.cursor/**",
+      "**/.windsurfrules",
+      "**/.github/copilot-instructions.md",
+      // Boilerplate markdown
+      "**/CHANGELOG.md",
+      "**/CHANGELOG*.md",
+      "**/LICENSE*",
       AI_MEMORY_DIR + "/**",
       AI_MEMORY_CACHE_DIR + "/**",
     ],

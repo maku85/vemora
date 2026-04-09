@@ -42,7 +42,7 @@ const program = new Command();
 program
   .name("vemora")
   .description("Repository-local memory system for LLM-assisted development")
-  .version("0.1.0");
+  .version(require("../package.json").version);
 
 // ── init ──────────────────────────────────────────────────────────────────────
 
