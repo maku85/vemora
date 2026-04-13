@@ -31,6 +31,8 @@ export function computeBM25Scores(
   symbols: SymbolIndex,
   topK = 10,
 ): SearchResult[] {
+  if (!query) return [];
+
   // 1. Tokenize query
   const queryTerms = query
     .toLowerCase()
@@ -53,7 +55,7 @@ export function computeBM25Scores(
     const dfMap = new Map<string, number>();
 
     for (const chunk of chunks) {
-      const tokens = chunk.content.toLowerCase().split(/[\s\W]+/);
+      const tokens = (chunk.content ?? "").toLowerCase().split(/[\s\W]+/);
       docTokens.push(tokens);
       totalLen += tokens.length;
 

@@ -9,6 +9,12 @@ export interface ChatOptions {
   maxTokens?: number;
   stream?: boolean;
   onToken?: (token: string) => void;
+  /**
+   * Absolute path to the project root.
+   * Used by subprocess-based providers (e.g. claude-code) as the working
+   * directory and to grant file-tool access.
+   */
+  projectRoot?: string;
 }
 
 export interface LLMResponse {

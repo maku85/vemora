@@ -231,6 +231,33 @@ async function askConfirm(question: string): Promise<boolean> {
   });
 }
 
+/**
+ * Extract the first valid JSON object from a response that may contain
+ * surrounding prose, markdown code fences, or both.
+ * Priority: code fence → brace-delimited object → raw string.
+ */
+function extractJson(raw: string): string {
+  // 1. Try markdown code fence (```json ... ``` or ``` ... ```)
+  const fenceMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if (fenceMatch) return fenceMatch[1].trim();
+
+  // 2. Try to find the outermost { ... } block
+  const start = raw.indexOf("{");
+  if (start !== -1) {
+    let depth = 0;
+    for (let i = start; i < raw.length; i++) {
+      if (raw[i] === "{") depth++;
+      else if (raw[i] === "}") {
+        depth--;
+        if (depth === 0) return raw.slice(start, i + 1);
+      }
+    }
+  }
+
+  // 3. Fallback — let JSON.parse produce the error
+  return raw;
+}
+
 /** Display the plan in a human-readable table before execution. */
 function displayPlan(plan: Plan, steps: PlanStep[]): void {
   const actionColor: Record<string, (s: string) => string> = {
@@ -353,12 +380,16 @@ async function verifyOutput(
   planner: LLMProvider,
   plannerConfig: SummarizationConfig,
   plannerContext: string,
+  rootDir: string,
+  isClaudeCodePlanner: boolean,
 ): Promise<{ approved: boolean; feedback: string }> {
   const response = await planner.chat(
     [
       {
         role: "system",
-        content: `${VERIFIER_SYSTEM_PROMPT}\n\n${plannerContext}`,
+        content: isClaudeCodePlanner
+          ? VERIFIER_SYSTEM_PROMPT
+          : `${VERIFIER_SYSTEM_PROMPT}\n\n${plannerContext}`,
       },
       {
         role: "user",
@@ -367,7 +398,7 @@ async function verifyOutput(
           `Executor output:\n\`\`\`diff\n${answer}\n\`\`\``,
       },
     ],
-    { model: plannerConfig.model, temperature: 0.1 },
+    { model: plannerConfig.model, temperature: 0.1, projectRoot: rootDir },
   );
 
   const raw = response.content.trim();
@@ -466,8 +497,10 @@ async function retrieveStepContext(
   }
 
   if (results.length === 0) {
+    // Guard: LLM may omit query; fall back to goal so BM25 never receives undefined
+    const searchQuery = step.query ?? step.goal;
     if (forceKeyword) {
-      results = computeBM25Scores(step.query, chunks, symbols, topK);
+      results = computeBM25Scores(searchQuery, chunks, symbols, topK);
     } else {
       try {
         const cache = cacheStorage.load();
@@ -475,17 +508,17 @@ async function retrieveStepContext(
           ? (cache.chunkIds?.length ?? Object.keys(cache.embeddings ?? {}).length)
           : 0;
         if (!cache || cachedCount === 0) {
-          results = computeBM25Scores(step.query, chunks, symbols, topK);
+          results = computeBM25Scores(searchQuery, chunks, symbols, topK);
         } else {
           const provider = createEmbeddingProvider(config.embedding);
-          const [queryEmbedding] = await provider.embed([step.query]);
+          const [queryEmbedding] = await provider.embed([searchQuery]);
           results = vectorSearch(queryEmbedding, chunks, cache, symbols, topK);
           if (results.length === 0) {
-            results = computeBM25Scores(step.query, chunks, symbols, topK);
+            results = computeBM25Scores(searchQuery, chunks, symbols, topK);
           }
         }
       } catch {
-        results = computeBM25Scores(step.query, chunks, symbols, topK);
+        results = computeBM25Scores(searchQuery, chunks, symbols, topK);
       }
     }
   }
@@ -658,6 +691,7 @@ export async function runPlan(
   // executor > summarization fallback; planner > executor > summarization fallback
   const executorConfig = (config.executor ?? config.summarization) as SummarizationConfig;
   const plannerConfig: SummarizationConfig = config.planner ?? executorConfig;
+  const isClaudeCodePlanner = plannerConfig.provider === "claude-code";
 
   const topK = options.topK ?? 5;
   const budget = options.budget ?? 4000;
@@ -774,26 +808,48 @@ export async function runPlan(
           data.knowledgeEntries,
         );
 
-    const plannerSpinner = ora("Planning...").start();
+    // When using claude-code, skip pre-built context — Claude explores the
+    // project autonomously with its file tools. For other providers, inject
+    // the summaries + symbol list so they don't need filesystem access.
+    const plannerMessages: Array<{ role: "system" | "user"; content: string }> =
+      isClaudeCodePlanner
+        ? [
+            { role: "system", content: PLANNER_SYSTEM_PROMPT },
+            {
+              role: "user",
+              content:
+                `The project root is: ${rootDir}\n\n` +
+                `Use your file tools (Read, Grep, Glob) to explore the codebase ` +
+                `as needed, then decompose this task into concrete steps:\n\n${task}\n\n` +
+                `IMPORTANT: your entire response must be a single raw JSON object ` +
+                `starting with { and ending with }. No prose, no markdown, no code fences.`,
+            },
+          ]
+        : [
+            {
+              role: "system",
+              content: `${PLANNER_SYSTEM_PROMPT}\n\n${plannerContext}`,
+            },
+            {
+              role: "user",
+              content: `Decompose this task into concrete steps:\n\n${task}`,
+            },
+          ];
+
+    const plannerSpinner = ora(
+      isClaudeCodePlanner
+        ? "Planning (claude-code exploring codebase)..."
+        : "Planning...",
+    ).start();
     try {
-      const plannerResponse = await planner.chat(
-        [
-          {
-            role: "system",
-            content: `${PLANNER_SYSTEM_PROMPT}\n\n${plannerContext}`,
-          },
-          {
-            role: "user",
-            content: `Decompose this task into concrete steps:\n\n${task}`,
-          },
-        ],
-        { model: plannerConfig.model, temperature: 0.2 },
-      );
+      const plannerResponse = await planner.chat(plannerMessages, {
+        model: plannerConfig.model,
+        temperature: 0.2,
+        projectRoot: rootDir,
+      });
 
       const raw = plannerResponse.content.trim();
-      const jsonStr = raw.startsWith("```")
-        ? raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "")
-        : raw;
+      const jsonStr = extractJson(raw);
 
       plan = JSON.parse(jsonStr) as Plan;
 
@@ -985,6 +1041,8 @@ export async function runPlan(
                 planner,
                 plannerConfig,
                 plannerContext,
+                rootDir,
+                isClaudeCodePlanner,
               );
             } catch (err) {
               verifySpinner.warn(
@@ -1099,7 +1157,9 @@ export async function runPlan(
           [
             {
               role: "system",
-              content: `${REPLAN_SYSTEM_PROMPT}\n\n${plannerContext}`,
+              content: isClaudeCodePlanner
+                ? REPLAN_SYSTEM_PROMPT
+                : `${REPLAN_SYSTEM_PROMPT}\n\n${plannerContext}`,
             },
             {
               role: "user",
@@ -1109,7 +1169,7 @@ export async function runPlan(
                 `Provide remediation steps to gather the missing information.`,
             },
           ],
-          { model: plannerConfig.model, temperature: 0.2 },
+          { model: plannerConfig.model, temperature: 0.2, projectRoot: rootDir },
         );
 
         const raw = replanResponse.content.trim();

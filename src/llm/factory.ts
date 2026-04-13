@@ -1,5 +1,6 @@
 import type { SummarizationConfig } from "../core/types";
 import { AnthropicProvider } from "./anthropic";
+import { ClaudeCodeProvider } from "./claude-code";
 import { OllamaProvider } from "./ollama";
 import { OpenAIProvider } from "./openai";
 import type { LLMProvider } from "./provider";
@@ -35,6 +36,14 @@ export function createLLMProvider(config: SummarizationConfig): LLMProvider {
 
     case "ollama":
       return new OllamaProvider(config.baseUrl || "http://localhost:11434");
+
+    case "claude-code":
+      return new ClaudeCodeProvider({
+        command: config.baseUrl || "claude", // baseUrl repurposed as binary path
+        model: config.model || undefined,
+        allowedTools: config.allowedTools,
+        maxBudgetUsd: config.maxBudgetUsd,
+      });
 
     default:
       throw new Error(`Unknown LLM provider: "${config.provider}"`);

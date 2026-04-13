@@ -63,13 +63,18 @@ export interface AiMemoryConfig {
 }
 
 export interface SummarizationConfig {
-  provider: "openai" | "anthropic" | "ollama" | "gemini";
-  /** Chat completion model (default: gpt-4o-mini) */
+  provider: "openai" | "anthropic" | "ollama" | "gemini" | "claude-code";
+  /** Chat completion model (default: gpt-4o-mini). For claude-code: the --model flag value. */
   model: string;
   /** API key. Defaults to OPENAI_API_KEY / ANTHROPIC_API_KEY / GEMINI_API_KEY env vars. */
   apiKey?: string;
-  /** Base URL for OpenAI-compatible or Ollama APIs */
+  /** Base URL for OpenAI-compatible or Ollama APIs. For claude-code: path to the claude binary. */
   baseUrl?: string;
+  // ── claude-code specific ──────────────────────────────────────────────────
+  /** Tools to grant the Claude Code subprocess (default: ["Read","Grep","Glob"]) */
+  allowedTools?: string[];
+  /** Maximum USD budget per plan call (default: 0.50) */
+  maxBudgetUsd?: number;
 }
 
 export interface EmbeddingConfig {
