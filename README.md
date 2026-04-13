@@ -254,6 +254,10 @@ Options:
   --confirm           show the plan and ask for confirmation before executing
   --synthesize        call the planner again after all steps to produce a single final answer
   --show-context      print retrieved context for each step
+  --verify            after each executor step, have the planner review the output
+  --apply             automatically apply unified diffs produced by write steps (via patch -p1)
+  --max-retries <n>   max re-runs of a step when verification fails (default: 2)
+  --resume <id>       resume a previous session by short ID (first 8 chars) or full UUID
 ```
 
 #### Step action types
@@ -267,10 +271,13 @@ Options:
 
 #### Key features
 
-- **Parallel execution** — steps without dependencies run concurrently
+- **Parallel execution** — steps without dependencies run concurrently; sequential steps stream tokens to stdout in real time
 - **Step dependencies** (`dependsOn`) — later steps receive prior results as context
 - **Context deduplication** — the same file/symbol combination is retrieved only once per session
 - **Adaptive re-planning** — if an executor step reports insufficient context (`INSUFFICIENT:`), the planner adds remediation steps automatically
+- **Planner verification** (`--verify`) — after each executor step, the planner reviews the output and can request a retry with specific feedback
+- **Diff application** (`--apply`) — diffs from `write` steps are applied to the filesystem via `patch -p1`; live file contents are read before write steps to avoid stale index data
+- **Session persistence** — every session is saved to `~/.vemora-cache/<projectId>/sessions/` after each wave; interrupted runs can be resumed with `--resume <id>`
 - **Save synthesis** — after `--synthesize`, optionally save the result as a knowledge entry
 
 ```bash
@@ -280,20 +287,52 @@ vemora plan "add batch() method to OpenAIEmbeddingProvider" --confirm --synthesi
 # Analysis only (no code changes)
 vemora plan "explain how the hybrid search pipeline works" --keyword
 
-# With explicit executor diff output
-vemora plan "fix the N+1 query in UserRepository.findAll"
+# Executor writes diffs, planner verifies each step, apply to disk
+vemora plan "fix the N+1 query in UserRepository.findAll" --verify --apply
+
+# Resume an interrupted session (use vemora sessions to find the ID)
+vemora plan "..." --resume a1b2c3d4
 ```
 
 #### Configuration
 
 ```json
 {
-  "planner":       { "provider": "anthropic", "model": "claude-opus-4-6" },
-  "summarization": { "provider": "gemini",    "model": "gemini-2.0-flash", "apiKey": "..." }
+  "planner":  { "provider": "anthropic", "model": "claude-opus-4-6" },
+  "executor": { "provider": "ollama",    "model": "qwen2.5-coder:14b",
+                "baseUrl": "http://localhost:11434" }
 }
 ```
 
-`summarization` acts as the executor. If `planner` is omitted, both roles use the same model.
+`executor` is the model that carries out each step. If `executor` is omitted, `summarization` is used as the fallback. If `planner` is omitted, both roles use the same model.
+
+##### Using Claude Code as the planner
+
+Set `provider: "claude-code"` to use the local `claude` CLI subprocess as the planner. The subprocess can autonomously explore the codebase with `Read`, `Grep`, and `Glob` tools before generating the plan:
+
+```json
+{
+  "planner": {
+    "provider": "claude-code",
+    "model": "claude-sonnet-4-6",
+    "baseUrl": "/path/to/claude",
+    "allowedTools": ["Read", "Grep", "Glob"],
+    "maxBudgetUsd": 0.50
+  }
+}
+```
+
+`baseUrl` is the path to the `claude` binary (default: `"claude"`, assumed on `PATH`).
+
+### `vemora sessions`
+
+Lists recent plan sessions for the current project, showing their short ID, status, creation date, and task preview.
+
+```bash
+vemora sessions --root .
+```
+
+Use the short ID printed here with `vemora plan "<task>" --resume <id>` to continue an interrupted run.
 
 ### `vemora audit`
 
@@ -635,7 +674,7 @@ Edit `.vemora/config.json` after `init`:
 
 ### Planner-executor configuration
 
-Add a `planner` block to use a more capable model for planning while a smaller model handles execution:
+Add `planner` and `executor` blocks to use different models for planning and execution:
 
 ```json
 {
@@ -643,7 +682,7 @@ Add a `planner` block to use a more capable model for planning while a smaller m
     "provider": "anthropic",
     "model": "claude-opus-4-6"
   },
-  "summarization": {
+  "executor": {
     "provider": "gemini",
     "model": "gemini-2.0-flash",
     "apiKey": "your-google-ai-studio-key"
@@ -651,7 +690,14 @@ Add a `planner` block to use a more capable model for planning while a smaller m
 }
 ```
 
-`planner` is used by `vemora plan` and `vemora audit`. `summarization` acts as the executor. If `planner` is omitted, both roles use `summarization`.
+`planner` is used by `vemora plan` and `vemora audit`. `executor` handles step execution. Fallback chain: `executor` → `summarization` → same model for both roles.
+
+The `planner` config also accepts two extra fields when using `claude-code`:
+
+| Field | Type | Description |
+|---|---|---|
+| `allowedTools` | `string[]` | Tools the subprocess may call (default: `["Read","Grep","Glob"]`) |
+| `maxBudgetUsd` | `number` | Spend cap per plan call in USD (default: `0.50`) |
 
 ### `display.format`
 
@@ -693,6 +739,7 @@ Used by `ask`, `chat`, `summarize`, `plan`, and `audit`.
 | `anthropic` | `ANTHROPIC_API_KEY` env or `apiKey` in config | Requires `npm install @anthropic-ai/sdk`. |
 | `gemini` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` env or `apiKey` in config | Uses Google's OpenAI-compatible endpoint. Free tier available via Google AI Studio. |
 | `ollama` | `baseUrl` (default: `http://localhost:11434`) | Local, no cost. |
+| `claude-code` | `baseUrl` = path to `claude` binary (default: `"claude"`) | Planner-only. Spawns the Claude Code CLI subprocess; the subprocess can explore the codebase with `Read`/`Grep`/`Glob` before answering. Requires Claude Code installed and authenticated. |
 
 #### OpenAI-compatible endpoints
 
@@ -731,16 +778,26 @@ When `provider` is `ollama` and `model` is omitted, the model from `summarizatio
 **Maximum quality (cloud)**
 ```json
 {
-  "planner":       { "provider": "anthropic", "model": "claude-opus-4-6" },
-  "summarization": { "provider": "openai",    "model": "gpt-4o-mini" }
+  "planner":  { "provider": "anthropic", "model": "claude-opus-4-6" },
+  "executor": { "provider": "openai",    "model": "gpt-4o-mini" }
+}
+```
+
+**Claude Code as planner + free executor**
+```json
+{
+  "planner":  { "provider": "claude-code", "model": "claude-sonnet-4-6",
+                "allowedTools": ["Read","Grep","Glob"], "maxBudgetUsd": 0.50 },
+  "executor": { "provider": "ollama", "model": "qwen2.5-coder:14b",
+                "baseUrl": "http://localhost:11434" }
 }
 ```
 
 **Pro planner + free executor**
 ```json
 {
-  "planner":       { "provider": "anthropic", "model": "claude-opus-4-6" },
-  "summarization": { "provider": "gemini",    "model": "gemini-2.0-flash", "apiKey": "..." }
+  "planner":  { "provider": "anthropic", "model": "claude-opus-4-6" },
+  "executor": { "provider": "gemini",    "model": "gemini-2.0-flash", "apiKey": "..." }
 }
 ```
 
@@ -749,12 +806,13 @@ When `provider` is `ollama` and `model` is omitted, the model from `summarizatio
 {
   "embedding":     { "provider": "ollama", "model": "nomic-embed-text", "dimensions": 768 },
   "summarization": { "provider": "ollama", "model": "gemma4:e2b" },
+  "executor":      { "provider": "ollama", "model": "qwen2.5-coder:7b" },
   "reranker":      { "provider": "ollama" },
   "display":       { "format": "terse" }
 }
 ```
 
-Other local models that work well: `qwen2.5-coder:14b`, `llama3.2`, `mistral`.
+Other local executor models that work well: `qwen2.5-coder:14b`, `llama3.2`, `mistral`.
 
 ---
 

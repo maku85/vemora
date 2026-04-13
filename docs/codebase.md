@@ -18,7 +18,7 @@ Complete file-by-file breakdown of the `vemora/` package. This document is optim
 
 ## `src/cli.ts` — CLI entry point
 
-The Commander.js program definition. Registers fourteen commands (plus one subcommand group):
+The Commander.js program definition. Registers commands across four groups:
 
 | Command | Handler |
 |---|---|
@@ -29,7 +29,9 @@ The Commander.js program definition. Registers fourteen commands (plus one subco
 | `query <question>` | `commands/query.ts:runQuery` |
 | `ask <question>` | `commands/ask.ts:runAsk` |
 | `context` | `commands/context.ts:runContext` |
+| `focus <target>` | `commands/focus.ts:runFocus` |
 | `deps <file>` | `commands/deps.ts:runDeps` |
+| `usages <symbol>` | `commands/usages.ts:runUsages` |
 | `status` | `commands/status.ts:runStatus` |
 | `summarize` | `commands/summarize.ts:runSummarize` |
 | `chat` | `commands/chat.ts:runChat` |
@@ -39,6 +41,12 @@ The Commander.js program definition. Registers fourteen commands (plus one subco
 | `brief` | `commands/brief.ts:runBrief` |
 | `knowledge list` | `commands/knowledge.ts:runKnowledgeList` |
 | `knowledge forget <id>` | `commands/knowledge.ts:runKnowledgeForget` |
+| `plan <task>` | `commands/plan.ts:runPlan` — planner-executor orchestrator |
+| `sessions` | inline in `cli.ts` — lists plan sessions via `PlanSessionStorage` |
+| `audit` | `commands/audit.ts:runAudit` — LLM-driven checklist audit |
+| `triage` | `commands/triage.ts:runTriage` — zero-LLM static scan |
+| `dead-code` | `commands/dead-code.ts:runDeadCode` — unused symbol/export/file analysis |
+| `report` | `commands/report.ts:runReport` |
 
 All commands accept `--root <dir>` (defaults to `process.cwd()`). Errors are caught and printed with `chalk.red`, then `process.exit(1)`.
 
@@ -195,6 +203,37 @@ Methods:
 
 ---
 
+## `src/storage/planSession.ts` — Plan session persistence
+
+`PlanSessionStorage` class. Sessions live at `~/.vemora-cache/<projectId>/sessions/<uuid>.json` (NOT in git).
+
+**`PlanSession` shape:**
+```typescript
+{
+  sessionId: string;        // UUID v4
+  shortId: string;          // first 8 chars — used for --resume
+  task: string;             // original plan task
+  rootDir: string;
+  status: "running" | "completed" | "failed";
+  plan: { goal: string; steps: unknown[] };
+  stepResults: Record<string, string>;  // stepId (string) → executor answer
+  completedStepIds: number[];
+  nextId: number;           // next available step ID for adaptive re-planning
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+Methods:
+- `save(session)` — atomic write: writes to `<id>.json.tmp`, then `renameSync`
+- `load(idOrPrefix)` — accepts full UUID or 8-char prefix; returns `null` if not found
+- `list()` — returns all sessions sorted by `updatedAt` descending
+- `delete(sessionId)` — removes the JSON file
+
+Sessions are created at plan start, updated after every wave, and marked `"completed"` on success. `--resume <shortId>` reuses the saved plan and skips already-completed steps.
+
+---
+
 ## `src/indexer/scanner.ts` — File scanning
 
 `scanRepository(config)` — async, returns `ScannedFile[]`.
@@ -338,6 +377,44 @@ Returns empty arrays. The query command detects empty embeddings and falls back 
 ## `src/embeddings/factory.ts` — Provider factory
 
 `createEmbeddingProvider(config: EmbeddingConfig)` — switch on `config.provider`. The only place that knows about all implementations. Adding a new provider requires: implement `EmbeddingProvider`, add a case here.
+
+---
+
+## `src/llm/provider.ts` — LLM provider interface
+
+```typescript
+interface ChatMessage  { role: "system" | "user" | "assistant"; content: string }
+interface ChatOptions  { model?, temperature?, maxTokens?, stream?, onToken?, projectRoot? }
+interface LLMResponse  { content: string; usage? }
+interface LLMProvider  { readonly name: string; chat(messages, options?): Promise<LLMResponse> }
+```
+
+`projectRoot` in `ChatOptions` is used by subprocess-based providers (`claude-code`) as the working directory.
+
+---
+
+## `src/llm/claude-code.ts` — Claude Code subprocess provider
+
+`ClaudeCodeProvider implements LLMProvider`. Used exclusively as the `planner` when `provider: "claude-code"`.
+
+Spawns the `claude` binary as a child process with `spawn()` (no shell, safe argument passing):
+- `-p <prompt>` — the user/conversation messages combined into a single string
+- `--output-format text` — raw text response (no JSON envelope)
+- `--allowedTools Read,Grep,Glob` — tools the subprocess may call
+- `--max-budget-usd 0.50` — spend cap per invocation
+- `--dangerously-skip-permissions` — non-interactive mode (no permission prompts)
+- `--append-system-prompt <text>` — injects the system message if present
+- `--model <name>` — model override if specified in config
+
+`baseUrl` in config is repurposed as the path to the `claude` binary. Default: `"claude"` (assumed on PATH).
+
+The subprocess runs with `cwd: options.projectRoot` so `Read`/`Grep`/`Glob` tool calls resolve relative to the project root.
+
+---
+
+## `src/llm/factory.ts` — LLM provider factory
+
+`createLLMProvider(config: SummarizationConfig)` — switch on `config.provider`. Handles `openai`, `anthropic`, `gemini`, `ollama`, and `claude-code`. For `claude-code`, `baseUrl` is passed as the binary path.
 
 ---
 

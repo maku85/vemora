@@ -73,7 +73,9 @@ node dist/cli.js query "authentication" --root . --keyword
 | `qwen2.5-coder:7b` | ~5 GB | ~20 tok/s | Good |
 | `qwen2.5-coder:14b` | ~9 GB | ~10 tok/s | Very good |
 
-For query and context commands (`vemora query`, `vemora context`), the LLM is not called — results come from the local index. The LLM is used only by `vemora chat` and `vemora summarize`.
+For query and context commands (`vemora query`, `vemora context`), the LLM is not called — results come from the local index. The LLM is used by `vemora chat`, `vemora summarize`, `vemora plan`, and `vemora audit`.
+
+The `planner` can be configured separately from the `executor`. Use `provider: "claude-code"` to spawn the local `claude` CLI as the planner subprocess, granting it access to `Read`, `Grep`, and `Glob` so it can explore the codebase before producing a plan.
 
 ---
 
@@ -464,6 +466,7 @@ vemora/
     │   ├── summaries.ts    R/W .vemora/summaries/ (file + project summaries)
     │   ├── knowledge.ts    R/W .vemora/knowledge/entries.json (+ filterValidAt, invalidate)
     │   ├── session.ts      per-session seen-chunk tracking (~/.vemora-cache/<id>/session.json)
+    │   ├── planSession.ts  plan session persistence (~/.vemora-cache/<id>/sessions/*.json)
     │   └── usage.ts        append-only usage log (~/.vemora-cache/<id>/usage.log.json)
     ├── indexer/
     │   ├── scanner.ts      fast-glob repository scan
@@ -477,13 +480,21 @@ vemora/
     │   ├── ollama.ts       Ollama local models
     │   ├── noop.ts         no-op (keyword-only mode)
     │   └── factory.ts      createEmbeddingProvider(config)
+    ├── llm/
+    │   ├── provider.ts     LLMProvider interface + ChatMessage/ChatOptions types
+    │   ├── anthropic.ts    Anthropic SDK provider
+    │   ├── openai.ts       OpenAI + Gemini + OpenAI-compatible providers
+    │   ├── ollama.ts       Ollama local LLM provider (streaming + non-streaming)
+    │   ├── claude-code.ts  Claude Code CLI subprocess provider (planner-only)
+    │   └── factory.ts      createLLMProvider(config)
     ├── search/
     │   ├── vector.ts       cosine similarity + TF keyword search
+    │   ├── bm25.ts         BM25 keyword scoring with symbol-name boosting
     │   ├── signature.ts    signature extraction + display tier logic
-    │   ├── rerank.ts       cross-encoder reranking [NEW]
+    │   ├── rerank.ts       cross-encoder reranking
     │   └── formatter.ts    JSON / Markdown output formatters
     ├── utils/
-    │   └── tokenizer.ts    heuristic token counting [NEW]
+    │   └── tokenizer.ts    heuristic token counting
     └── commands/
         ├── init.ts         vemora init
         ├── init-claude.ts  vemora init-claude (thin wrapper → init-agent)
@@ -491,6 +502,11 @@ vemora/
         ├── index.ts        vemora index (orchestrates everything)
         ├── query.ts        vemora query (+ --format, --budget, symbol routing)
         ├── context.ts      vemora context (+ --budget, --structured, knowledge integration)
+        ├── plan.ts         vemora plan (planner-executor orchestrator, session persistence)
+        ├── audit.ts        vemora audit (LLM-driven checklist audit)
+        ├── triage.ts       vemora triage (zero-LLM static heuristic scan)
+        ├── dead-code.ts    vemora dead-code (unused symbols/exports/files)
+        ├── focus.ts        vemora focus <file-or-symbol>
         ├── deps.ts         vemora deps <file>
         ├── usages.ts       vemora usages <symbol>
         ├── status.ts       vemora status (+ knowledge staleness detection)
@@ -500,6 +516,6 @@ vemora/
         ├── summarize.ts    vemora summarize
         ├── remember.ts     vemora remember <text> (knowledge store write, LLM auto-classify + contradiction detection)
         ├── brief.ts        vemora brief (session primer: overview + critical knowledge)
-        ├── knowledge.ts    vemora knowledge list (--as-of, --expired) / forget (--invalidate)
+        ├── knowledge.ts    vemora knowledge list / forget
         └── report.ts       vemora report (usage stats, token savings, latency, hot files, low-signal queries)
 ```

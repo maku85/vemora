@@ -47,8 +47,9 @@ The system solves a specific tension: **more context = better LLM understanding,
 ┌─────────────────────────────────────────────────────┐
 │  Layer 3: CLI Tool                                   │
 │                                                      │
-│  vemora init | index | query | context | deps | status │
-│  vemora remember | knowledge list/forget | summarize   │
+│  vemora init | index | query | context | deps | status  │
+│  vemora remember | knowledge | summarize | sessions     │
+│  vemora plan | audit | triage | dead-code | focus       │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -56,11 +57,14 @@ Layer 1 is committed to git so the whole team shares the same index without each
 
 There is also an implicit **session layer** managed by `storage/session.ts`, stored alongside the embedding cache in `~/.vemora-cache/<projectId>/session.json`. It tracks which chunks have already been returned to the LLM in the current session (30-minute idle TTL) to avoid repetition across sequential queries.
 
+Plan execution sessions are managed by a separate `storage/planSession.ts` layer. Each `vemora plan` run creates a `PlanSession` file in `~/.vemora-cache/<projectId>/sessions/<uuid>.json`. The session records the full plan, step results, and the set of completed step IDs, written atomically after every wave. An interrupted run can be resumed with `--resume <shortId>` — the planner is not re-invoked; the saved plan is reused.
+
 In full, the memory layers are:
 
 | Layer | Location | Scope | TTL | Storage class |
 |---|---|---|---|---|
-| Session | `~/.vemora-cache/<id>/session.json` | single developer, single session | 30 min idle | `SessionStorage` |
+| Query session | `~/.vemora-cache/<id>/session.json` | single developer, single session | 30 min idle | `SessionStorage` |
+| Plan sessions | `~/.vemora-cache/<id>/sessions/*.json` | single developer, persistent | indefinite | `PlanSessionStorage` |
 | Local cache | `~/.vemora-cache/<id>/` | single developer, persistent | indefinite | `EmbeddingCacheStorage` |
 | Project / team | `.vemora/` (git-versioned) | whole team, permanent | indefinite | `KnowledgeStorage`, `RepositoryStorage` |
 
@@ -514,7 +518,10 @@ This makes code review of index updates meaningful: reviewers can see which new 
 | tree-sitter in `optionalDependencies` | Regex fallback ensures the tool works even without native build |
 | `openai` and `@anthropic-ai/sdk` in `optionalDependencies` | Users install only the SDK for the provider they actually use; a clear error is thrown at instantiation time if the package is missing |
 | Embeddings prefixed with metadata | Better retrieval quality (embedding knows file + symbol context) |
-| No session memory / conversation state | Out of scope; intended to be used as a pre-query tool |
+| Plan sessions outside git | Intermediate step results and diffs are too large and too ephemeral for git. Stored in the local cache directory alongside embeddings. |
+| Atomic session writes (tmp + rename) | Prevents corrupted session files if the process is killed mid-write. |
+| `claude-code` planner uses subprocess spawn, not API | Lets the planner call `Read`/`Grep`/`Glob` to explore the codebase autonomously before producing a plan, with no additional auth or API key beyond Claude Code itself. |
+| No session memory / conversation state | Out of scope for the query layer; intended to be used as a pre-query tool. Plan sessions cover the agentic execution layer. |
 | Adjacent chunk merge as opt-in post-step | Keeps chunks atomic in the index; merging at retrieval time avoids duplicating content only when it's actually needed for display |
 | Structured context (`--structured`) as opt-in | Default flat list is simpler and composable; structured layout is opt-in so bench and programmatic callers are unaffected. Structured mode reduces tokens ~20-35% and makes relationships explicit for LLMs. |
 | Knowledge store in git, not in embedding cache | Entries are text-only, human-readable, diff-friendly. They live in Layer 1 (git) so the whole team shares them. No embeddings needed — lightweight BM25 term overlap is sufficient for the small corpus of entries. |
