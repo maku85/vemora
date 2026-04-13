@@ -26,67 +26,44 @@ export const MARKER_END = "<!-- vemora:generated:end -->";
 
 export const DEFAULT_INSTRUCTIONS = `## Working with this codebase
 
-- **Before reading any file**, check the Key Exports table below to locate the relevant symbol.
-- **Before querying**, try \`vemora query\` first — open a file only if the returned context is insufficient.
-- **Before deep-diving a file or symbol**, use \`vemora focus\` — it aggregates implementation, deps, callers, tests, and knowledge in one call.
-- **Before modifying a file**, check its blast radius: \`vemora deps <file> --root . --reverse-depth 2\`.
-- **Before renaming a symbol or changing its API**, check who uses it: \`vemora usages <SymbolName> --root .\`. For methods, add \`--callers-only\` to see only actual call sites (not just files that import the class).
-- **After making changes**, always run the build/test command to verify correctness before declaring done.
-- **Scope discipline**: only make changes directly requested. Do not refactor surrounding code, add comments, or improve things that were not explicitly asked.
-- **Save non-obvious findings** with \`vemora remember\` when you discover a gotcha, an architectural decision, or a pattern worth preserving for future sessions. Do not save things already obvious from reading the code.
+- **Before reading any file**, check the Key Exports table to locate the symbol.
+- **Before querying**, try \`vemora query\` first — open a file only if context is insufficient.
+- **Before deep-diving a file or symbol**, use \`vemora focus\` — aggregates impl, deps, callers, tests, and knowledge in one call.
+- **Before modifying a file**, check blast radius: \`vemora deps <file> --root . --reverse-depth 2\`.
+- **Before renaming a symbol**, check callers: \`vemora usages <SymbolName> --root .\` (add \`--callers-only\` for methods).
+- **After changes**, run the build/test command before declaring done.
+- **Scope discipline**: only change what was asked. No refactoring, comments, or improvements beyond the request.
+- **Save non-obvious findings** with \`vemora remember\` — decisions, gotchas, patterns. Skip what's obvious from reading the code.
 
 ## Session setup
 
-At the **start of each session**, load the project primer:
-
 \`\`\`bash
-vemora brief --root .
+vemora brief --root .          # start of session: project overview + critical knowledge
+vemora index --root . --watch  # background terminal: live re-index on file save
+vemora index --root . --no-embed  # or: re-index manually after significant changes
 \`\`\`
-
-For a live index, also run this in a background terminal:
-
-\`\`\`bash
-vemora index --root . --watch
-\`\`\`
-
-Without it, re-index manually after significant changes:
-
-\`\`\`bash
-vemora index --root . --no-embed
-\`\`\`
-
-## Session memory
-
-During the session, **proactively save** anything non-obvious that future sessions would benefit from knowing:
-
-\`\`\`bash
-vemora remember "text" --root .   # category is auto-classified by the LLM
-\`\`\`
-
-**Save:** why a design decision was made, a non-obvious constraint, a bug and its root cause, an approved pattern.
-**Do not save:** things obvious from reading the code, file structure, recent changes (use \`git log\`), or anything already in the index.
 
 ## Quick reference
 
-Use this decision tree to choose the right command:
-
-| Situation | Command |
+| Need | Command |
 |---|---|
-| Session start — re-establish context | \`brief --root .\` |
-| User asks about a function, class, or file | \`focus <file-or-symbol> --root .\` |
-| User asks a concept/how-does-X-work question | \`context --root . --query "<question>"\` |
-| User asks to fix / refactor / add code | \`context --root . --query "<task>" --keyword\`, then check for \`*.test.ts\` before editing |
-| Need context only on recently changed files | \`context --root . --query "<question>" --since HEAD~5\` |
+| Session start | \`brief --root .\` |
+| File or symbol deep-dive | \`focus <target> --root .\` |
+| Concept / how-does-X question | \`context --root . --query "<question>"\` |
+| Fix / refactor / add code | \`context --root . --query "<task>" --keyword\` |
+| Scope to recent changes | \`context --root . --query "..." --since HEAD~5\` |
 | Complex multi-step task | \`plan "<task>" --root . --confirm --synthesize\` |
-| Security / performance / bug audit | \`audit --root . --type security,bugs\` |
-| Quick static scan — no API key needed | \`triage --root . --type bugs,security\` |
-| Find unused code — no API key needed | \`dead-code --root .\` |
-| Output is too long for your context window | add \`--budget 2000\` (or lower) to any command |
-| No embeddings available / fast keyword search | add \`--keyword\` to any \`query\` or \`context\` call |
-| Need to understand who imports a file | \`deps <file> --root .\` |
-| Need to see the full blast radius of a change | \`deps <file> --root . --reverse-depth 3\` |
-| Need to find who imports a class or function | \`usages <SymbolName> --root .\` |
-| Need to find who calls a specific method | \`usages <MethodName> --root . --callers-only\` |`;
+| LLM audit (security/bugs/perf) | \`audit --root . --type security,bugs\` |
+| Zero-LLM static scan | \`triage --root . --type bugs,security\` |
+| Find unused code | \`dead-code --root .\` |
+| Output too long | add \`--budget 2000\` to any command |
+| No embeddings / fast search | add \`--keyword\` to \`query\` or \`context\` |
+| Who imports a file | \`deps <file> --root .\` |
+| Blast radius of a change | \`deps <file> --root . --reverse-depth 3\` |
+| Who uses a symbol | \`usages <SymbolName> --root .\` |
+| Who calls a method | \`usages <Method> --root . --callers-only\` |
+| Save a finding | \`remember "text" --root .\` |
+`;
 
 // ─── Main command ─────────────────────────────────────────────────────────────
 
@@ -119,12 +96,16 @@ export async function runInitAgent(
     .slice(0, 10);
 
   // Key exports: exported symbols from source files only (exclude docs/, tests/).
+  // Sort order: classes and functions first (most useful for lookup), constants last.
+  const TYPE_PRIORITY: Record<string, number> = { class: 0, function: 1, interface: 2, type: 3 };
   const exportedSymbols = Object.entries(symbols)
     .filter(([, s]) => s.exported && s.file.startsWith("src/"))
-    .sort(
-      (a, b) => a[1].type.localeCompare(b[1].type) || a[0].localeCompare(b[0]),
-    )
-    .slice(0, 60);
+    .sort((a, b) => {
+      const pa = TYPE_PRIORITY[a[1].type] ?? 4;
+      const pb = TYPE_PRIORITY[b[1].type] ?? 4;
+      return pa !== pb ? pa - pb : a[0].localeCompare(b[0]);
+    })
+    .slice(0, 40);
 
   // npm scripts from package.json (build, test, dev commands).
   const npmScripts = detectNpmScripts(rootDir);
@@ -187,12 +168,9 @@ function writeAgentFile(
 const CLAUDE_EXTRA_INSTRUCTIONS = `
 ## Claude Code memory
 
-In addition to \`vemora remember\`, Claude Code has its own persistent memory system.
-Use it to save user preferences, feedback, and context that goes beyond the codebase itself:
-
-- Save user preferences, working style, and feedback that should persist across sessions.
-- At session end, write any non-obvious discoveries or decisions that aren't already captured by \`vemora remember\`.
-- Read memory at session start to re-establish context without asking the user to repeat themselves.
+Use Claude Code's persistent memory alongside \`vemora remember\`:
+- Save user preferences, working style, and feedback that go beyond the codebase.
+- At session end, persist non-obvious discoveries not already captured by \`vemora remember\`.
 `;
 
 function writeClaudeFile(
@@ -501,58 +479,6 @@ export function buildGeneratedBlock(
     lines.push("");
   }
 
-  // vemora usage instructions
-  lines.push("## Codebase Search (vemora)");
-  lines.push("");
-  lines.push(
-    "This project is indexed with `vemora`. Before working on unfamiliar code, use it to retrieve only the relevant context:",
-  );
-  lines.push("");
-  lines.push("```bash");
-  lines.push("# Session primer — load project overview + critical knowledge (~170 tokens)");
-  lines.push("vemora brief --root .");
-  lines.push("");
-  lines.push("# All context about a file or symbol in one call (impl + deps + callers + tests + knowledge)");
-  lines.push("vemora focus src/path/to/file.ts --root .");
-  lines.push("vemora focus SymbolName --root .");
-  lines.push("");
-  lines.push("# Semantic search — returns the most relevant code chunks");
-  lines.push('vemora query "your question" --root .');
-  lines.push('vemora query "your question" --root . --keyword  # no embeddings needed');
-  lines.push('vemora query "your question" --root . --budget 3000  # cap token output');
-  lines.push("");
-  lines.push("# One-shot answer: retrieve context and call the configured LLM");
-  lines.push('vemora ask "your question" --root .');
-  lines.push("");
-  lines.push("# Generate a full context block to paste into any LLM");
-  lines.push('vemora context --root . --query "your question" > context.md');
-  lines.push("vemora context --root . --file src/path/to/file.ts");
-  lines.push('vemora context --root . --query "what changed" --since HEAD~5  # scope to recent diff');
-  lines.push("");
-  lines.push("# Complex multi-step task: pro LLM plans, smaller LLM executes each step");
-  lines.push('vemora plan "add rate limiting to the API layer" --root . --confirm --synthesize');
-  lines.push("");
-  lines.push("# Systematic LLM audit for security / performance / bugs");
-  lines.push("vemora audit --root . --type security,bugs");
-  lines.push("vemora audit --root . --since HEAD~1  # only changed files");
-  lines.push("");
-  lines.push("# Zero-LLM static scan — no API key needed");
-  lines.push("vemora triage --root . --type bugs,security");
-  lines.push("vemora dead-code --root .                          # unused private symbols, exports, files");
-  lines.push("vemora dead-code --root . --type uncalled-private  # only private methods/functions with no callers");
-  lines.push("");
-  lines.push("# Dependency graph");
-  lines.push("vemora deps src/path/to/file.ts --root . --reverse-depth 2");
-  lines.push("vemora usages <SymbolName> --root .              # who imports a class or function");
-  lines.push("vemora usages <MethodName> --root . --callers-only  # who calls a specific method");
-  lines.push("");
-  lines.push("# Save a persistent note — category is auto-classified by the LLM");
-  lines.push('vemora remember "text" --root .');
-  lines.push("");
-  lines.push("# List saved knowledge entries");
-  lines.push("vemora knowledge list --root .");
-  lines.push("```");
-  lines.push("");
   lines.push(
     `_Generated by \`vemora init-agent\` — ${new Date().toISOString()}_`,
   );
