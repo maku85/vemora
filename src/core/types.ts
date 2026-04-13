@@ -39,13 +39,18 @@ export interface AiMemoryConfig {
   /** Max characters per chunk before splitting */
   maxChunkChars: number;
   embedding: EmbeddingConfig;
-  /** Configuration for LLM-based summarization (vemora summarize) */
+  /** Configuration for LLM-based summarization (vemora summarize, chat, ask, brief) */
   summarization?: SummarizationConfig;
   /**
    * LLM used as planner in the planner-executor pattern (vemora plan).
-   * Typically a more capable/expensive model. Falls back to summarization if omitted.
+   * Typically a more capable/reasoning model. Falls back to summarization if omitted.
    */
   planner?: SummarizationConfig;
+  /**
+   * LLM used as executor in the planner-executor pattern (vemora plan).
+   * Typically a fast local model specialized for code. Falls back to summarization if omitted.
+   */
+  executor?: SummarizationConfig;
   /**
    * Search result reranker. Defaults to "xenova" (local cross-encoder).
    * Set to "ollama" to use the local LLM instead of @xenova/transformers.

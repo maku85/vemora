@@ -1,6 +1,9 @@
 import chalk from "chalk";
 import { exec } from "child_process";
 import { randomUUID } from "crypto";
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import path from "path";
 import ora from "ora";
 import readline from "readline";
 import { promisify } from "util";
@@ -22,6 +25,7 @@ import { computeBM25Scores } from "../search/bm25";
 import { vectorSearch } from "../search/vector";
 import { EmbeddingCacheStorage } from "../storage/cache";
 import { KnowledgeStorage } from "../storage/knowledge";
+import { type PlanSession, PlanSessionStorage } from "../storage/planSession";
 import { RepositoryStorage } from "../storage/repository";
 import { SummaryStorage } from "../storage/summaries";
 import { applyTokenBudget } from "../utils/tokenizer";
@@ -44,6 +48,14 @@ export interface PlanOptions {
   confirm?: boolean;
   /** After all steps, call the planner again to synthesize a final answer */
   synthesize?: boolean;
+  /** Have the planner verify executor outputs (write steps) before applying */
+  verify?: boolean;
+  /** Apply diffs produced by write steps to the filesystem */
+  apply?: boolean;
+  /** Max planner→executor retry cycles per write step when verify rejects (default: 2) */
+  maxRetries?: number;
+  /** Resume a previous session by ID or 8-char prefix */
+  resumeSession?: string;
 }
 
 // ─── Internal types ───────────────────────────────────────────────────────────
@@ -80,6 +92,8 @@ interface StepResult {
   stepId: number;
   answer: string;
   insufficient: boolean;
+  /** True when output was already streamed to stdout — skip re-printing */
+  streamed?: boolean;
 }
 
 // ─── Shared data loaded once ──────────────────────────────────────────────────
@@ -159,6 +173,18 @@ const REPLAN_SYSTEM_PROMPT =
   "Provide 1-3 additional steps to recover the missing information.\n\n" +
   "Return ONLY valid JSON — no markdown fences:\n" +
   '{ "steps": [{ "id": <next_id>, "action": "read|analyze", "goal": "...", "instruction": "...", "files": [], "symbols": [], "query": "...", "dependsOn": [<failed_step_id>] }] }';
+
+const VERIFIER_SYSTEM_PROMPT =
+  "You are an expert software architect reviewing code changes produced by an AI executor. " +
+  "Your job is to verify that the executor's output correctly implements the requested goal.\n\n" +
+  "Review the diff for:\n" +
+  "- Correctness: does it faithfully implement the goal and instruction?\n" +
+  "- Completeness: are there obvious missing pieces?\n" +
+  "- Safety: are there apparent bugs, regressions, or unsafe changes?\n\n" +
+  "Respond with EXACTLY one of the following two options (no other text):\n" +
+  "APPROVED\n" +
+  "NEEDS_REVISION: <specific, actionable feedback for the executor to address>\n\n" +
+  "Be concise. The executor will retry with your feedback injected into its prompt.";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -242,6 +268,118 @@ function displayPlan(plan: Plan, steps: PlanStep[]): void {
   console.log();
 }
 
+/**
+ * Apply a unified diff to the project using `patch -p1`.
+ * Writes the diff to a temp file to avoid shell stdin complexity.
+ */
+async function applyDiff(
+  diff: string,
+  rootDir: string,
+  dryRun = false,
+): Promise<{ success: boolean; output: string }> {
+  const tmpFile = `${tmpdir()}/vemora-${Date.now()}.patch`;
+  try {
+    writeFileSync(tmpFile, diff, "utf-8");
+    const flags = dryRun ? "--dry-run" : "";
+    const { stdout, stderr } = await execAsync(
+      `patch -p1 ${flags} < "${tmpFile}"`,
+      { cwd: rootDir },
+    );
+    return { success: true, output: (stdout + stderr).trim() };
+  } catch (err: unknown) {
+    const e = err as { stdout?: string; stderr?: string; message?: string };
+    return {
+      success: false,
+      output: ((e.stdout ?? "") + (e.stderr ?? "") + (e.message ?? "")).trim(),
+    };
+  } finally {
+    try {
+      unlinkSync(tmpFile);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/**
+ * Normalize an executor's raw output into a clean unified diff:
+ * - Strips markdown code fences (```diff ... ```)
+ * - Strips explanation prose before the first `--- ` header
+ * Returns the cleaned diff and any warnings to surface to the user.
+ */
+function normalizeDiff(raw: string): { diff: string; warnings: string[] } {
+  const warnings: string[] = [];
+
+  // Pass through INSUFFICIENT responses untouched
+  if (raw.trimStart().startsWith("INSUFFICIENT:")) {
+    return { diff: raw, warnings: [] };
+  }
+
+  let content = raw.trim();
+
+  // Strip markdown code fences
+  const fenceMatch = content.match(/^```(?:diff)?\n?([\s\S]*?)\n?```$/);
+  if (fenceMatch) {
+    content = fenceMatch[1].trim();
+  }
+
+  // Strip explanation prose before the first `--- ` diff header
+  const lines = content.split("\n");
+  const diffStartIdx = lines.findIndex((l) => l.startsWith("--- "));
+
+  if (diffStartIdx === -1) {
+    warnings.push(
+      "No diff header (--- a/file) found — executor may have produced prose instead of a unified diff",
+    );
+    return { diff: content, warnings };
+  }
+
+  if (diffStartIdx > 0) {
+    warnings.push(
+      `Stripped ${diffStartIdx} line(s) of preamble before the diff`,
+    );
+  }
+
+  return { diff: lines.slice(diffStartIdx).join("\n"), warnings };
+}
+
+/**
+ * Call the planner to verify a write-step diff.
+ * Returns approved=true or approved=false with actionable feedback.
+ */
+async function verifyOutput(
+  step: PlanStep,
+  answer: string,
+  planner: LLMProvider,
+  plannerConfig: SummarizationConfig,
+  plannerContext: string,
+): Promise<{ approved: boolean; feedback: string }> {
+  const response = await planner.chat(
+    [
+      {
+        role: "system",
+        content: `${VERIFIER_SYSTEM_PROMPT}\n\n${plannerContext}`,
+      },
+      {
+        role: "user",
+        content:
+          `Goal: ${step.goal}\n\nInstruction: ${step.instruction}\n\n` +
+          `Executor output:\n\`\`\`diff\n${answer}\n\`\`\``,
+      },
+    ],
+    { model: plannerConfig.model, temperature: 0.1 },
+  );
+
+  const raw = response.content.trim();
+  if (raw.startsWith("APPROVED")) {
+    return { approved: true, feedback: "" };
+  }
+  const feedback = raw.startsWith("NEEDS_REVISION:")
+    ? raw.slice("NEEDS_REVISION:".length).trim()
+    : raw;
+  return { approved: false, feedback };
+}
+
 /** Build the cheap planner context from summaries + symbol list (no raw code). */
 function buildPlannerContext(
   projectName: string,
@@ -291,6 +429,21 @@ async function retrieveStepContext(
   const cacheKey = contextCacheKey(step);
   const cached = contextCache.get(cacheKey);
   if (cached) return cached;
+
+  // ── write steps: read targeted files live from disk (not stale index chunks) ─
+  if ((step.action ?? "analyze") === "write" && step.files?.length) {
+    const liveBlocks = step.files.map((relPath) => {
+      const absPath = path.join(rootDir, relPath);
+      if (existsSync(absPath)) {
+        const content = readFileSync(absPath, "utf-8");
+        return `## ${relPath} (live — read from disk)\n\`\`\`\n${content}\n\`\`\``;
+      }
+      return `## ${relPath} — FILE NOT FOUND ON DISK`;
+    });
+    const liveCtx = `# Current File Contents\n\n${liveBlocks.join("\n\n")}`;
+    contextCache.set(cacheKey, liveCtx);
+    return liveCtx;
+  }
 
   const { chunks, symbols, depGraph, callGraph, fileSummaries, projectOverview, knowledgeEntries } = data;
   let results: SearchResult[] = [];
@@ -372,6 +525,10 @@ async function executeStep(
   stepResults: Map<number, string>,
   contextCache: Map<string, string>,
   showContext: boolean,
+  /** Planner feedback from a previous failed attempt — injected into the executor prompt */
+  feedback?: string,
+  /** Stream tokens to stdout in real time (only for sequential, non-parallel steps) */
+  stream?: boolean,
 ): Promise<StepResult> {
   const action = step.action ?? "analyze";
 
@@ -442,20 +599,39 @@ async function executeStep(
   const systemPrompt =
     action === "write" ? EXECUTOR_WRITE_PROMPT : EXECUTOR_ANALYZE_PROMPT;
 
-  const response = await executor.chat(
-    [
-      { role: "system", content: `${systemPrompt}\n\n${contextStr}` },
-      {
-        role: "user",
-        content: `Goal: ${step.goal}\n\nInstruction: ${step.instruction}${dependencySection}`,
-      },
-    ],
-    {
-      model: executorConfig.model,
-      temperature: action === "write" ? 0.1 : 0.3,
-    },
-  );
+  const feedbackSection = feedback
+    ? `\n\n## Planner feedback from previous attempt\n${feedback}\n\nRevise your output to address this feedback.`
+    : "";
 
+  const messages = [
+    { role: "system" as const, content: `${systemPrompt}\n\n${contextStr}` },
+    {
+      role: "user" as const,
+      content: `Goal: ${step.goal}\n\nInstruction: ${step.instruction}${dependencySection}${feedbackSection}`,
+    },
+  ];
+  const chatOpts = {
+    model: executorConfig.model,
+    temperature: action === "write" ? 0.1 : 0.3,
+  };
+
+  if (stream) {
+    // Stream tokens directly to stdout — caller must not print the answer again
+    let answer = "";
+    process.stdout.write(chalk.cyan("  ↳ "));
+    await executor.chat(messages, {
+      ...chatOpts,
+      onToken: (token) => {
+        process.stdout.write(token);
+        answer += token;
+      },
+    });
+    process.stdout.write("\n\n");
+    const insufficient = answer.trimStart().startsWith("INSUFFICIENT:");
+    return { stepId: step.id, answer, insufficient, streamed: true };
+  }
+
+  const response = await executor.chat(messages, chatOpts);
   const answer = response.content;
   const insufficient = answer.trimStart().startsWith("INSUFFICIENT:");
   return { stepId: step.id, answer, insufficient };
@@ -470,17 +646,17 @@ export async function runPlan(
 ): Promise<void> {
   const config = loadConfig(rootDir);
 
-  if (!config.summarization) {
+  if (!config.summarization && !config.executor) {
     console.error(
       chalk.red(
-        'No executor LLM configured. Add a "summarization" block to .vemora/config.json.',
+        'No executor LLM configured. Add a "summarization" or "executor" block to .vemora/config.json.',
       ),
     );
     process.exit(1);
   }
 
-  // config.summarization is guaranteed non-undefined here (checked above)
-  const executorConfig = config.summarization as SummarizationConfig;
+  // executor > summarization fallback; planner > executor > summarization fallback
+  const executorConfig = (config.executor ?? config.summarization) as SummarizationConfig;
   const plannerConfig: SummarizationConfig = config.planner ?? executorConfig;
 
   const topK = options.topK ?? 5;
@@ -539,83 +715,114 @@ export async function runPlan(
   }
   console.log();
 
-  // ── Phase 1: build planner context (summaries + symbols, no raw code) ──────
+  // ── Session setup (early — needed to skip planning on resume) ───────────────
+  const sessionStorage = new PlanSessionStorage(config.projectId);
 
-  const plannerSpinner = ora("Planning...").start();
+  // ── Phase 1 + 2: planner context + plan generation (skipped on resume) ──────
 
-  const plannerContext = hasSummaries
-    ? buildPlannerContext(
-        config.projectName,
-        data.projectOverview,
-        data.fileSummaries,
-        data.symbols,
-      )
-    : generateContextString(
-        config,
-        applyTokenBudget(
-          computeBM25Scores(task, chunks, data.symbols, topK),
-          budget,
+  let plan!: Plan;
+  let plannerContext = "";
+
+  if (options.resumeSession) {
+    // Load saved session — plan and results are already there
+    const loaded = sessionStorage.load(options.resumeSession);
+    if (!loaded) {
+      console.error(
+        chalk.red(
+          `Session "${options.resumeSession}" not found. List sessions with \`vemora sessions --root .\``,
         ),
-        data.depGraph,
-        data.callGraph,
-        data.fileSummaries,
-        data.projectOverview,
-        { query: task, format: "terse" },
-        rootDir,
-        chunks,
-        data.knowledgeEntries,
+      );
+      process.exit(1);
+    }
+    plan = loaded.plan as unknown as Plan;
+    console.log(
+      chalk.cyan(
+        `  Resuming session ${loaded.shortId} — reusing saved plan (${plan.steps.length} steps)`,
+      ),
+    );
+    // Build plannerContext for verifier (still needed if --verify is set)
+    plannerContext = hasSummaries
+      ? buildPlannerContext(
+          config.projectName,
+          data.projectOverview,
+          data.fileSummaries,
+          data.symbols,
+        )
+      : "";
+  } else {
+    // Build planner context from summaries + symbol list (no raw code)
+    plannerContext = hasSummaries
+      ? buildPlannerContext(
+          config.projectName,
+          data.projectOverview,
+          data.fileSummaries,
+          data.symbols,
+        )
+      : generateContextString(
+          config,
+          applyTokenBudget(
+            computeBM25Scores(task, chunks, data.symbols, topK),
+            budget,
+          ),
+          data.depGraph,
+          data.callGraph,
+          data.fileSummaries,
+          data.projectOverview,
+          { query: task, format: "terse" },
+          rootDir,
+          chunks,
+          data.knowledgeEntries,
+        );
+
+    const plannerSpinner = ora("Planning...").start();
+    try {
+      const plannerResponse = await planner.chat(
+        [
+          {
+            role: "system",
+            content: `${PLANNER_SYSTEM_PROMPT}\n\n${plannerContext}`,
+          },
+          {
+            role: "user",
+            content: `Decompose this task into concrete steps:\n\n${task}`,
+          },
+        ],
+        { model: plannerConfig.model, temperature: 0.2 },
       );
 
-  // ── Phase 2: call planner ──────────────────────────────────────────────────
+      const raw = plannerResponse.content.trim();
+      const jsonStr = raw.startsWith("```")
+        ? raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "")
+        : raw;
 
-  // definite assignment: process.exit(1) in catch guarantees assignment
-  let plan!: Plan;
+      plan = JSON.parse(jsonStr) as Plan;
 
-  try {
-    const plannerResponse = await planner.chat(
-      [
-        {
-          role: "system",
-          content: `${PLANNER_SYSTEM_PROMPT}\n\n${plannerContext}`,
-        },
-        {
-          role: "user",
-          content: `Decompose this task into concrete steps:\n\n${task}`,
-        },
-      ],
-      { model: plannerConfig.model, temperature: 0.2 },
-    );
+      if (!Array.isArray(plan.steps) || plan.steps.length === 0) {
+        throw new Error("Plan has no steps");
+      }
 
-    const raw = plannerResponse.content.trim();
-    const jsonStr = raw.startsWith("```")
-      ? raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "")
-      : raw;
-
-    plan = JSON.parse(jsonStr) as Plan;
-
-    if (!Array.isArray(plan.steps) || plan.steps.length === 0) {
-      throw new Error("Plan has no steps");
+      plannerSpinner.succeed(
+        `Plan ready — ${plan.steps.length} step${plan.steps.length !== 1 ? "s" : ""}`,
+      );
+    } catch (err) {
+      plannerSpinner.fail(`Planning failed: ${(err as Error).message}`);
+      process.exit(1);
     }
-
-    plannerSpinner.succeed(
-      `Plan ready — ${plan.steps.length} step${plan.steps.length !== 1 ? "s" : ""}`,
-    );
-  } catch (err) {
-    plannerSpinner.fail(`Planning failed: ${(err as Error).message}`);
-    process.exit(1);
   }
 
-  // ── Phase 3: display plan + optional confirmation ──────────────────────────
+  // ── Phase 3: display plan + optional confirmation (skipped on resume) ────────
 
-  displayPlan(plan, plan.steps);
+  if (!options.resumeSession) {
+    displayPlan(plan, plan.steps);
 
-  if (options.confirm) {
-    const ok = await askConfirm(chalk.bold("Proceed with this plan? [Y/n] "));
-    if (!ok) {
-      console.log(chalk.gray("Aborted."));
-      return;
+    if (options.confirm) {
+      const ok = await askConfirm(chalk.bold("Proceed with this plan? [Y/n] "));
+      if (!ok) {
+        console.log(chalk.gray("Aborted."));
+        return;
+      }
+      console.log();
     }
-    console.log();
   }
 
   // ── Phase 4: execute in topological waves (parallel within each wave) ──────
@@ -624,8 +831,54 @@ export async function runPlan(
   const stepResults = new Map<number, string>();
   const contextCache = new Map<string, string>();
   let nextId = Math.max(...plan.steps.map((s) => s.id)) + 1;
+  let session: PlanSession;
+
+  if (options.resumeSession) {
+    // Session was already loaded and plan restored in Phase 1/2 — just re-load to get state
+    session = sessionStorage.load(options.resumeSession)!;
+    for (const [k, v] of Object.entries(session.stepResults)) {
+      stepResults.set(Number(k), v);
+    }
+    nextId = session.nextId;
+    console.log(
+      chalk.cyan(
+        `  ${session.completedStepIds.length} step(s) already complete — continuing from wave boundary\n`,
+      ),
+    );
+  } else {
+    const sessionId = randomUUID();
+    session = {
+      sessionId,
+      shortId: sessionId.slice(0, 8),
+      task,
+      rootDir,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      status: "running",
+      plan: plan as unknown as PlanSession["plan"],
+      stepResults: {},
+      completedStepIds: [],
+      nextId,
+    };
+    sessionStorage.save(session);
+    console.log(
+      chalk.gray(
+        `  Session: ${session.shortId}  (use --resume ${session.shortId} to continue if interrupted)\n`,
+      ),
+    );
+  }
 
   for (const wave of waves) {
+    // Skip waves whose steps are all already done (resume path)
+    if (wave.every((s) => stepResults.has(s.id))) {
+      const ids = wave.map((s) => s.id).join(", ");
+      console.log(
+        chalk.gray(
+          `  ── step${wave.length > 1 ? "s" : ""} [${ids}] already complete — skipping ──`,
+        ),
+      );
+      continue;
+    }
     const isParallel = wave.length > 1;
     if (isParallel) {
       console.log(
@@ -671,19 +924,22 @@ export async function runPlan(
           stepResults,
           contextCache,
           options.showContext ?? false,
+          undefined,       // feedback — none on first attempt
+          !isParallel,     // stream — only for sequential steps
         ).then((result) => {
           waveSpinners[i]?.succeed(`  [${step.id}] ${step.goal}`);
           return result;
         }).catch((err) => {
           waveSpinners[i]?.fail(`  [${step.id}] ${step.goal}`);
-          return { stepId: step.id, answer: `Error: ${(err as Error).message}`, insufficient: false };
+          return { stepId: step.id, answer: `Error: ${(err as Error).message}`, insufficient: false, streamed: false };
         }),
       ),
     );
 
     for (const result of waveResults) {
       stepResults.set(result.stepId, result.answer);
-      if (!isParallel) {
+      // Skip printing if already streamed to stdout
+      if (!isParallel && !result.streamed) {
         const indented = result.answer.replace(/\n/g, "\n  ");
         console.log(`  ${indented}\n`);
       }
@@ -694,6 +950,132 @@ export async function runPlan(
         const step = wave.find((s) => s.id === result.stepId)!;
         console.log(chalk.bold.yellow(`\n  [${step.id}] ${step.goal}`));
         console.log(`  ${result.answer.replace(/\n/g, "\n  ")}\n`);
+      }
+    }
+
+    // ── Verify + retry + apply: handle write steps ────────────────────────────
+
+    if (options.verify || options.apply) {
+      const maxRetries = options.maxRetries ?? 2;
+
+      for (const result of waveResults) {
+        const step = wave.find((s) => s.id === result.stepId)!;
+        if ((step.action ?? "analyze") !== "write") continue;
+        if (result.insufficient) continue;
+
+        // Normalize the diff (strip code fences, preamble) before verify/apply
+        const { diff: normalizedDiff, warnings: diffWarnings } = normalizeDiff(result.answer);
+        if (diffWarnings.length > 0) {
+          for (const w of diffWarnings) console.log(chalk.yellow(`  ⚠  ${w}`));
+        }
+        let currentAnswer = normalizedDiff;
+        let approved = !options.verify; // auto-approve when not verifying
+
+        if (options.verify) {
+          const verifySpinner = ora(
+            `  Verifying [${step.id}] ${step.goal}...`,
+          ).start();
+
+          for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            let verdict: { approved: boolean; feedback: string };
+            try {
+              verdict = await verifyOutput(
+                step,
+                currentAnswer,
+                planner,
+                plannerConfig,
+                plannerContext,
+              );
+            } catch (err) {
+              verifySpinner.warn(
+                `  [${step.id}] Verifier error: ${(err as Error).message}`,
+              );
+              break;
+            }
+
+            if (verdict.approved) {
+              verifySpinner.succeed(
+                `  [${step.id}] ${chalk.green("Approved")} by planner`,
+              );
+              approved = true;
+              break;
+            }
+
+            if (attempt === maxRetries) {
+              verifySpinner.warn(
+                `  [${step.id}] ${chalk.yellow("Rejected")} after ${maxRetries + 1} attempt(s) — not applying`,
+              );
+              console.log(
+                chalk.yellow(`  Planner feedback: ${verdict.feedback}`),
+              );
+              break;
+            }
+
+            verifySpinner.text = `  [${step.id}] Needs revision (attempt ${attempt + 2}/${maxRetries + 1})...`;
+            console.log(
+              chalk.yellow(`\n  Planner feedback: ${verdict.feedback}`),
+            );
+
+            // Re-run executor with planner feedback injected
+            const retryResult = await executeStep(
+              step,
+              config,
+              data,
+              cacheStorage,
+              rootDir,
+              executorConfig,
+              executor,
+              topK,
+              budget,
+              forceKeyword,
+              stepResults,
+              contextCache,
+              options.showContext ?? false,
+              verdict.feedback,
+            );
+
+            const { diff: retryDiff, warnings: retryWarnings } = normalizeDiff(retryResult.answer);
+            if (retryWarnings.length > 0) {
+              for (const w of retryWarnings) console.log(chalk.yellow(`  ⚠  ${w}`));
+            }
+            currentAnswer = retryDiff;
+            stepResults.set(retryResult.stepId, currentAnswer);
+            const indented = currentAnswer.replace(/\n/g, "\n  ");
+            console.log(chalk.gray(`\n  Revised output:\n  ${indented}\n`));
+          }
+        }
+
+        // Apply diff to filesystem
+        if (options.apply) {
+          if (approved) {
+            const applySpinner = ora(
+              `  Applying diff for step [${step.id}]...`,
+            ).start();
+            const { success, output } = await applyDiff(
+              currentAnswer,
+              rootDir,
+            );
+            if (success) {
+              applySpinner.succeed(`  [${step.id}] Diff applied`);
+              if (output) console.log(chalk.gray(`  ${output}`));
+            } else {
+              applySpinner.fail(`  [${step.id}] Diff apply failed`);
+              console.log(chalk.red(`  ${output}`));
+            }
+          } else {
+            console.log(
+              chalk.yellow(
+                `  [${step.id}] Diff NOT applied (verification rejected).`,
+              ),
+            );
+          }
+        } else if (approved) {
+          console.log(
+            chalk.gray(
+              `  Tip: add --apply to automatically patch the filesystem.`,
+            ),
+          );
+        }
       }
     }
 
@@ -785,7 +1167,21 @@ export async function runPlan(
         replanSpinner.warn("  Re-planning failed — continuing.");
       }
     }
+
+    // ── Persist session state after every wave ─────────────────────────────
+    session.stepResults = Object.fromEntries(
+      Array.from(stepResults.entries()).map(([k, v]) => [String(k), v]),
+    );
+    session.completedStepIds = Array.from(stepResults.keys());
+    session.nextId = nextId;
+    session.updatedAt = new Date().toISOString();
+    sessionStorage.save(session);
   }
+
+  // Mark session complete before synthesis
+  session.status = "completed";
+  session.updatedAt = new Date().toISOString();
+  sessionStorage.save(session);
 
   // ── Phase 5: optional synthesis ────────────────────────────────────────────
 

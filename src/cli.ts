@@ -22,6 +22,7 @@ import { runBrief } from "./commands/brief";
 import { runAudit } from "./commands/audit";
 import { runFocus } from "./commands/focus";
 import { runPlan } from "./commands/plan";
+import { PlanSessionStorage } from "./storage/planSession";
 import { runTriage } from "./commands/triage";
 import { runDeadCode } from "./commands/dead-code";
 import { runChat } from "./commands/chat";
@@ -37,6 +38,7 @@ import { runUsages } from "./commands/usages";
 import { runReport } from "./commands/report";
 import { runStatus } from "./commands/status";
 import { runSummarize } from "./commands/summarize";
+import { loadConfig } from "./core/config";
 
 const program = new Command();
 
@@ -287,6 +289,25 @@ program
     "call the planner again after all steps to produce a single final answer",
     false,
   )
+  .option(
+    "--verify",
+    "have the planner verify each write-step diff before applying",
+    false,
+  )
+  .option(
+    "--apply",
+    "apply diffs produced by write steps to the filesystem (via patch -p1)",
+    false,
+  )
+  .option(
+    "--max-retries <n>",
+    "max planner→executor retry cycles per write step when verify rejects (default: 2)",
+    "2",
+  )
+  .option(
+    "--resume <id>",
+    "resume a previous session by ID or 8-char prefix",
+  )
   .action(
     async (
       task: string,
@@ -298,6 +319,10 @@ program
         showContext: boolean;
         confirm: boolean;
         synthesize: boolean;
+        verify: boolean;
+        apply: boolean;
+        maxRetries: string;
+        resume?: string;
       },
     ) => {
       const rootDir = path.resolve(opts.root || process.cwd());
@@ -309,6 +334,10 @@ program
           showContext: opts.showContext,
           confirm: opts.confirm,
           synthesize: opts.synthesize,
+          verify: opts.verify,
+          apply: opts.apply,
+          maxRetries: Number.parseInt(opts.maxRetries, 10),
+          resumeSession: opts.resume,
         });
       } catch (err) {
         console.error(chalk.red("Error:"), (err as Error).message);
@@ -316,6 +345,48 @@ program
       }
     },
   );
+
+// ── sessions ──────────────────────────────────────────────────────────────────
+
+program
+  .command("sessions")
+  .description("list recent plan sessions (use --resume <id> on vemora plan to continue one)")
+  .option("--root <dir>", "project root directory (default: cwd)", "")
+  .action(async (opts: { root: string }) => {
+    const rootDir = path.resolve(opts.root || process.cwd());
+    let config: ReturnType<typeof loadConfig>;
+    try {
+      config = loadConfig(rootDir);
+    } catch (err) {
+      console.error(chalk.red((err as Error).message));
+      process.exit(1);
+    }
+    const storage = new PlanSessionStorage(config.projectId);
+    const sessions = storage.list();
+    if (sessions.length === 0) {
+      console.log(chalk.gray("No sessions found."));
+      return;
+    }
+    console.log(chalk.bold.cyan("\n[vemora sessions]\n"));
+    for (const s of sessions) {
+      const statusColor =
+        s.status === "completed"
+          ? chalk.green
+          : s.status === "failed"
+            ? chalk.red
+            : chalk.yellow;
+      const age = new Date(s.updatedAt).toLocaleString();
+      console.log(
+        `  ${chalk.bold(s.shortId)}  ${statusColor(s.status.padEnd(9))}  ${chalk.gray(age)}  ${s.task.slice(0, 60)}${s.task.length > 60 ? "…" : ""}`,
+      );
+      console.log(
+        chalk.gray(
+          `           ${s.completedStepIds.length} step(s) done · resume: vemora plan "<task>" --resume ${s.shortId}`,
+        ),
+      );
+    }
+    console.log();
+  });
 
 // ── chat ──────────────────────────────────────────────────────────────────────
 
