@@ -70,7 +70,7 @@ program
   .description("Index the repository content")
   .option("--root <dir>", "Project root directory", process.cwd())
   .option("--force", "Re-index all files, ignoring hashes", false)
-  .option("--no-embed", "Skip embedding generation", false)
+  .option("--no-embed", "Skip embedding generation")
   .option("-w, --watch", "Watch for changes and re-index automatically", false)
   .action(
     async (opts: {
