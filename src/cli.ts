@@ -38,6 +38,7 @@ import { runUsages } from "./commands/usages";
 import { runReport } from "./commands/report";
 import { runStatus } from "./commands/status";
 import { runSummarize } from "./commands/summarize";
+import { SKILL_NAMES, type SkillName } from "./skills";
 import { loadConfig } from "./core/config";
 
 const program = new Command();
@@ -484,6 +485,10 @@ program
   )
   .option("--fresh", "reset session memory before this query", false)
   .option("--since <ref>", "restrict search to files changed since this git ref (e.g. HEAD~5, main)")
+  .option(
+    "--skill <name>",
+    "task-type preset (debug|refactor|add-feature|security|explain|test): pre-configures retrieval and prepends a focused instruction block",
+  )
   .action(
     async (opts: {
       root: string;
@@ -505,12 +510,19 @@ program
       session: boolean;
       fresh: boolean;
       since?: string;
+      skill?: string;
     }) => {
       const rootDir = path.resolve(opts.root || process.cwd());
       const fmt = opts.format as "markdown" | "plain" | "terse" | undefined;
       if (fmt && !["markdown", "plain", "terse"].includes(fmt)) {
         console.error(
           chalk.red(`Unknown format "${fmt}". Use: markdown, plain, terse`),
+        );
+        process.exit(1);
+      }
+      if (opts.skill && !SKILL_NAMES.includes(opts.skill as SkillName)) {
+        console.error(
+          chalk.red(`Unknown skill "${opts.skill}". Available: ${SKILL_NAMES.join(", ")}`),
         );
         process.exit(1);
       }
@@ -534,6 +546,7 @@ program
           session: opts.session,
           fresh: opts.fresh,
           since: opts.since,
+          skill: opts.skill as SkillName | undefined,
         });
       } catch (err) {
         console.error(chalk.red("Error:"), (err as Error).message);
@@ -1109,12 +1122,23 @@ program
   .option("--root <dir>", "project root directory (default: cwd)", "")
   .option("--all", "include all knowledge entries, not only high-confidence ones", false)
   .option("--budget <n>", "max tokens to include in output")
-  .action(async (opts: { root: string; all: boolean; budget?: string }) => {
+  .option(
+    "--skill <name>",
+    "task-type preset (debug|refactor|add-feature|security|explain|test): boosts relevant knowledge and prepends a focused instruction block",
+  )
+  .action(async (opts: { root: string; all: boolean; budget?: string; skill?: string }) => {
     const rootDir = path.resolve(opts.root || process.cwd());
+    if (opts.skill && !SKILL_NAMES.includes(opts.skill as SkillName)) {
+      console.error(
+        chalk.red(`Unknown skill "${opts.skill}". Available: ${SKILL_NAMES.join(", ")}`),
+      );
+      process.exit(1);
+    }
     try {
       await runBrief(rootDir, {
         all: opts.all,
         budget: opts.budget ? parseInt(opts.budget, 10) : undefined,
+        skill: opts.skill as SkillName | undefined,
       });
     } catch (err) {
       console.error(chalk.red("Error:"), (err as Error).message);

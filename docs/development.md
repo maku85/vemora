@@ -151,6 +151,51 @@ Order matters: first matching pattern wins per line.
 
 ---
 
+## How to add a new skill
+
+Skills live in `src/skills/index.ts`. Each skill is a `SkillConfig` object in the `SKILLS` registry.
+
+1. Add the name to `SKILL_NAMES`:
+   ```typescript
+   export const SKILL_NAMES = [
+     "debug", "refactor", "add-feature", "security", "explain", "test",
+     "my-skill",   // ← add here
+   ] as const;
+   ```
+
+2. Add the config to the `SKILLS` record:
+   ```typescript
+   "my-skill": {
+     name: "my-skill",
+     description: "One-line description shown in --help",
+     contextDefaults: {
+       topK: 6,
+       hybrid: true,
+       alpha: 0.65,
+       mmr: true,
+       lambda: 0.6,
+       budget: 3500,
+     },
+     outputPrefix: [
+       "## Skill: my-skill",
+       "",
+       "Focus on:",
+       "- ...",
+     ].join("\n"),
+     knowledgeCategoryBoost: ["pattern"],  // knowledge categories to surface first in `brief`
+   },
+   ```
+
+**`contextDefaults`** — any subset of `ContextOptions`. User-supplied flags always win; skill values fill in only what was not specified.
+
+**`outputPrefix`** — prepended to the context output (markdown/plain only, not terse). Tells the LLM what reasoning to apply. Keep it under ~150 tokens.
+
+**`knowledgeCategoryBoost`** — ordered list of knowledge categories to surface first in `vemora brief --skill my-skill`. Categories: `gotcha`, `pattern`, `decision`, `glossary`.
+
+No other changes needed — the CLI validation and `--help` text are generated from `SKILL_NAMES` automatically.
+
+---
+
 ## How to add a new CLI command
 
 1. Create `src/commands/<name>.ts` with an exported `run<Name>` async function
@@ -331,23 +376,24 @@ Salvare in `.vemora/drift-log.json`. `vemora status` potrebbe mostrare le funzio
 
 ### E4. Intent-based routing delle query
 
-**Problema:** tutte le query seguono lo stesso pipeline (embed → search → format). Ma una query di debug, una di spiegazione e una di modifica hanno esigenze di contesto molto diverse.
+> **Parzialmente implementato** — il sistema di skill (`--skill`) copre il caso esplicito (utente dichiara il tipo di task). La parte aperta è il routing *automatico* basato sull'analisi della query.
 
-**Idea:** classificare l'intent della query prima del retrieval e adattare la strategia:
+**Problema residuo:** quando `--skill` non è specificato, tutte le query seguono lo stesso pipeline. Il testo "fix auth flow" e "explain auth flow" ricevono lo stesso contesto, anche se le esigenze sono molto diverse.
+
+**Idea:** auto-classificare l'intent prima del retrieval e applicare la skill corrispondente:
 
 ```
-debug    → priorità a file con test + recenti commit + error handler
-explain  → priorità a file entry-point + dipendenze transitive
-modify   → priorità a interfacce pubbliche + test esistenti + chiamanti
-review   → priorità a file più complessi + code smell patterns
+debug    → /\b(fix|bug|error|crash|exception|fail)\b/i
+explain  → /\b(explain|understand|how does|what does|why)\b/i
+refactor → /\b(refactor|rename|extract|move|clean)\b/i
 ```
 
 **Implementazione opzioni:**
-1. **Regex heuristic** (zero costo): `/\b(fix|bug|error|crash)\b/i` → debug mode
+1. **Regex heuristic** (zero costo): rilevamento inline in `runContext` prima del retrieval, applica `applySkill()` se nessuna skill è stata specificata esplicitamente. `getSkill()` e `applySkill()` sono già disponibili in `src/skills/index.ts`.
 2. **Piccolo classificatore locale** (4 classi, ~10 MB): eseguito offline, latenza < 50ms
 3. **Primo token LLM** (con provider configurato): `Classify as debug|explain|modify|review: "${query}"`
 
-La logica di routing va in `src/commands/context.ts` come pre-step, prima del retrieval.
+La logica di routing va in `runContext` come pre-step, subito dopo la validazione dell'input e prima dell'accesso al retrieval.
 
 ---
 
@@ -487,6 +533,8 @@ vemora/
     │   ├── ollama.ts       Ollama local LLM provider (streaming + non-streaming)
     │   ├── claude-code.ts  Claude Code CLI subprocess provider (planner-only)
     │   └── factory.ts      createLLMProvider(config)
+    ├── skills/
+    │   └── index.ts        skill registry: debug | refactor | add-feature | security | explain | test
     ├── search/
     │   ├── vector.ts       cosine similarity + TF keyword search
     │   ├── bm25.ts         BM25 keyword scoring with symbol-name boosting
@@ -501,7 +549,7 @@ vemora/
         ├── init-agent.ts   vemora init-agent (multi-agent instruction file generator)
         ├── index.ts        vemora index (orchestrates everything)
         ├── query.ts        vemora query (+ --format, --budget, symbol routing)
-        ├── context.ts      vemora context (+ --budget, --structured, knowledge integration)
+        ├── context.ts      vemora context (+ --budget, --structured, --skill, knowledge integration)
         ├── plan.ts         vemora plan (planner-executor orchestrator, session persistence)
         ├── audit.ts        vemora audit (LLM-driven checklist audit)
         ├── triage.ts       vemora triage (zero-LLM static heuristic scan)
@@ -515,7 +563,7 @@ vemora/
         ├── bench.ts        vemora bench
         ├── summarize.ts    vemora summarize
         ├── remember.ts     vemora remember <text> (knowledge store write, LLM auto-classify + contradiction detection)
-        ├── brief.ts        vemora brief (session primer: overview + critical knowledge)
+        ├── brief.ts        vemora brief (session primer: overview + critical knowledge, --skill support)
         ├── knowledge.ts    vemora knowledge list / forget
         └── report.ts       vemora report (usage stats, token savings, latency, hot files, low-signal queries)
 ```

@@ -3,6 +3,7 @@ import fs from "fs";
 import ora from "ora";
 import path from "path";
 import { loadConfig } from "../core/config";
+import { type SkillName, applySkill, getSkill } from "../skills";
 import type {
   CallGraph,
   Chunk,
@@ -76,6 +77,15 @@ export interface ContextOptions {
   fresh?: boolean;
   /** Restrict search to files changed since this git ref (e.g. HEAD~5, main) */
   since?: string;
+  /**
+   * Task-type skill preset: pre-configures retrieval options and prepends a
+   * focused instruction block to the output.
+   *
+   * Available: debug | refactor | add-feature | security | explain | test
+   *
+   * Explicit flags always override skill defaults.
+   */
+  skill?: SkillName;
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -88,6 +98,12 @@ export async function runContext(
   const repo = new RepositoryStorage(rootDir);
   const cacheStorage = new EmbeddingCacheStorage(config.projectId);
   const summaryStorage = new SummaryStorage(rootDir);
+
+  // Apply skill defaults first; explicit user options override them.
+  const skill = options.skill ? getSkill(options.skill) : undefined;
+  if (skill) {
+    options = applySkill(skill, options);
+  }
 
   const topK = options.topK ?? 5;
   // Apply config.display.format as default if no explicit format was passed.
@@ -286,7 +302,7 @@ export async function runContext(
     }
   }
 
-  const contextStr = generateContextString(
+  let contextStr = generateContextString(
     config,
     results,
     depGraph,
@@ -298,6 +314,10 @@ export async function runContext(
     chunks,
     knowledgeEntries,
   );
+
+  if (skill && resolvedOptions.format !== "terse") {
+    contextStr = `${skill.outputPrefix}\n\n${contextStr}`;
+  }
 
   console.log(contextStr);
 }

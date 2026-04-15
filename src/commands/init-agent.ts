@@ -48,9 +48,13 @@ vemora index --root . --no-embed  # or: re-index manually after significant chan
 | Need | Command |
 |---|---|
 | Session start | \`brief --root .\` |
+| Session start (task-specific) | \`brief --root . --skill debug\\|refactor\\|add-feature\\|security\\|explain\\|test\` |
 | File or symbol deep-dive | \`focus <target> --root .\` |
 | Concept / how-does-X question | \`context --root . --query "<question>"\` |
 | Fix / refactor / add code | \`context --root . --query "<task>" --keyword\` |
+| Debug an error (skill preset) | \`context --root . --query "<error>" --skill debug\` |
+| Refactor safely (skill preset) | \`context --root . --query "<target>" --skill refactor\` |
+| Add new feature (skill preset) | \`context --root . --query "<feature>" --skill add-feature\` |
 | Scope to recent changes | \`context --root . --query "..." --since HEAD~5\` |
 | Complex multi-step task | \`plan "<task>" --root . --confirm --synthesize\` |
 | LLM audit (security/bugs/perf) | \`audit --root . --type security,bugs\` |

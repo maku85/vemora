@@ -101,6 +101,11 @@ vemora query "how does IMAP reconnect work?"
 # Full context block ready to paste into any LLM
 vemora context --query "email retry logic" > context.md
 
+# Context with a task-type skill preset (pre-configures retrieval + adds focus note)
+vemora context --query "auth flow fails silently" --skill debug
+vemora context --query "extract retry logic to utility" --skill refactor
+vemora context --query "add webhook support" --skill add-feature
+
 # One-shot answer from the configured LLM
 vemora ask "why does the sync queue stall?"
 
@@ -210,6 +215,8 @@ Options:
   --budget <n>          max tokens to include across retrieved chunks
   --structured          emit a structured block (Entry Point / Dependencies / Types / Patterns)
   --since <ref>         restrict search to files changed since this git ref (e.g. HEAD~5, main)
+  --skill <name>        task-type preset — pre-configures retrieval and prepends a focused
+                        instruction block (debug | refactor | add-feature | security | explain | test)
 ```
 
 At least one of `--query` or `--file` is required.
@@ -219,6 +226,30 @@ When `--file` is used, the context block also includes:
 - **TODO/FIXME/HACK/XXX annotations** present in the file
 - **Test files** linked to the file — convention-based and import-based discovery
 - **Symbol callers** — for each symbol defined in the file, which other project symbols call it
+
+#### Skills (`--skill`)
+
+A skill is a **task-type preset** that does two things at once:
+
+1. **Pre-configures the retrieval pipeline** — sets task-appropriate defaults for `topK`, `hybrid`, `mmr`, `budget`, and `structured` so you don't need to tune flags manually.
+2. **Prepends a focused instruction block** to the output — tells the LLM exactly what kind of reasoning to apply (error paths, blast radius, code style, etc.).
+
+Explicit flags always override skill defaults.
+
+| Skill | Best for | Key retrieval changes |
+|---|---|---|
+| `debug` | Tracing errors, call paths, exception handling | topK 8, hybrid (BM25 for error strings), high MMR relevance |
+| `refactor` | Safe minimal-diff changes | structured output (callers explicit), topK 6 |
+| `add-feature` | Adding new functionality following existing patterns | structured + high MMR diversity to surface varied patterns |
+| `security` | Security review, injection, auth, path traversal | BM25-heavy (α=0.55), boosts `gotcha` knowledge entries |
+| `explain` | Understanding purpose and design decisions | Maximum MMR diversity (λ=0.4), lower budget |
+| `test` | Writing or improving tests | hybrid search, surfaces test file patterns |
+
+```bash
+vemora context --root . --query "auth flow fails silently" --skill debug
+vemora context --root . --query "extract retry logic to utility" --skill refactor
+vemora context --root . --query "add webhook support" --skill add-feature
+```
 
 ### `vemora ask "<question>"`
 
@@ -435,13 +466,18 @@ Prints a compact session primer — project overview and high-confidence knowled
 
 ```
 Options:
-  --root <dir>   project root (default: cwd)
-  --all          include all knowledge entries, not only high-confidence ones
+  --root <dir>     project root (default: cwd)
+  --all            include all knowledge entries, not only high-confidence ones
+  --skill <name>   task-type preset: surfaces knowledge entries most relevant
+                   to the skill's category boost list and prepends a focused
+                   instruction block (debug | refactor | add-feature | security | explain | test)
 ```
 
 ```bash
-vemora brief --root .       # overview + high-confidence entries only (~170 tokens)
-vemora brief --root . --all # include all entries
+vemora brief --root .                   # overview + high-confidence entries only
+vemora brief --root . --skill debug     # gotcha + pattern entries first, debug focus note
+vemora brief --root . --skill security  # security gotchas surfaced first
+vemora brief --root . --all             # all entries, no filter
 ```
 
 ### `vemora knowledge`

@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import { loadConfig } from "../core/config";
+import { type SkillName, getSkill } from "../skills";
 import { KnowledgeStorage, filterValidAt } from "../storage/knowledge";
 import { SummaryStorage } from "../storage/summaries";
 import { truncateToTokenBudget } from "../utils/tokenizer";
@@ -9,6 +10,13 @@ export interface BriefOptions {
   all?: boolean;
   /** Max tokens to include in output. Output is truncated if exceeded. */
   budget?: number;
+  /**
+   * Task-type skill preset: surfaces knowledge entries most relevant to the
+   * skill's category boost list and prepends a focused instruction block.
+   *
+   * Available: debug | refactor | add-feature | security | explain | test
+   */
+  skill?: SkillName;
 }
 
 /**
@@ -27,17 +35,39 @@ export async function runBrief(
   const summaryStorage = new SummaryStorage(rootDir);
   const knowledgeStorage = new KnowledgeStorage(rootDir);
 
+  const skill = options.skill ? getSkill(options.skill) : undefined;
+
   const projectSummary = summaryStorage.loadProjectSummary();
   const allEntries = filterValidAt(knowledgeStorage.load());
-  const entries = options.all
+
+  // When a skill is active, sort boosted categories to the top; confidence
+  // filter still applies unless --all is set.
+  let entries = options.all
     ? allEntries
     : allEntries.filter((e) => e.confidence === "high");
+
+  if (skill && skill.knowledgeCategoryBoost.length > 0) {
+    const boosted = new Set(skill.knowledgeCategoryBoost);
+    entries = [
+      ...entries.filter((e) => boosted.has(e.category)),
+      ...entries.filter((e) => !boosted.has(e.category)),
+    ];
+  }
 
   const lines: string[] = [];
 
   // ── Header ───────────────────────────────────────────────────────────────────
-  lines.push(chalk.bold(`# ${config.projectName} — session brief`));
+  const skillSuffix = skill ? ` [skill: ${skill.name}]` : "";
+  lines.push(chalk.bold(`# ${config.projectName} — session brief${skillSuffix}`));
   lines.push("");
+
+  // ── Skill focus note ─────────────────────────────────────────────────────────
+  if (skill) {
+    lines.push(skill.outputPrefix);
+    lines.push("");
+    lines.push("---");
+    lines.push("");
+  }
 
   // ── L0: Project overview ─────────────────────────────────────────────────────
   if (projectSummary) {
