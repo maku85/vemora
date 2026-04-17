@@ -1093,12 +1093,17 @@ program
   )
   .option("--budget <n>", "max tokens to include in output")
   .option("--lines <range>", "restrict implementation to a line range, e.g. 200-280")
+  .option("--depth <level>", "expansion depth for class targets: method — expands each member's implementation")
   .action(
-    async (target: string, opts: { root: string; format: string; budget?: string; lines?: string }) => {
+    async (target: string, opts: { root: string; format: string; budget?: string; lines?: string; depth?: string }) => {
       const rootDir = path.resolve(opts.root || process.cwd());
       const fmt = opts.format as "markdown" | "plain";
       if (!["markdown", "plain"].includes(fmt)) {
         console.error(chalk.red(`Unknown format "${fmt}". Use: markdown, plain`));
+        process.exit(1);
+      }
+      if (opts.depth && opts.depth !== "method") {
+        console.error(chalk.red(`Unknown --depth "${opts.depth}". Use: method`));
         process.exit(1);
       }
       let lines: { start: number; end: number } | undefined;
@@ -1115,6 +1120,7 @@ program
           format: fmt,
           budget: opts.budget ? parseInt(opts.budget, 10) : undefined,
           lines,
+          depth: opts.depth as "method" | undefined,
         });
       } catch (err) {
         console.error(chalk.red("Error:"), (err as Error).message);

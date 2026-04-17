@@ -660,6 +660,7 @@ Options:
   --format <fmt>      markdown (default) | plain
   --budget <n>        max tokens to include in output (truncates from the end)
   --lines <start-end> restrict implementation output to chunks overlapping a line range
+  --depth <level>     expand class members: method — shows implementation for each member
 ```
 
 `<target>` can be a file path (full or partial) or a symbol name:
@@ -669,8 +670,10 @@ Options:
 vemora focus src/core/email/services/email.service.ts --root .
 vemora focus email.service --root .   # partial path match
 
-# Symbol focus — implementation, callers, callees, sibling members, tests
-vemora focus EmailService.send --root .
+# Symbol focus — implementation, callers, callees, members, tests
+vemora focus EmailService --root .                      # shows Methods section with member list
+vemora focus EmailService --root . --depth method       # also expands each method's implementation
+vemora focus EmailService.send --root .                 # focus on a single method directly
 
 # Restrict to a specific line range (useful when --budget cuts off a method)
 vemora focus src/core/email/services/email.service.ts --root . --lines 200-280

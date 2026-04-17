@@ -26,6 +26,8 @@ export interface FocusOptions {
   budget?: number;
   /** Restrict implementation output to chunks overlapping this line range (e.g. "200-280") */
   lines?: { start: number; end: number };
+  /** Depth of expansion for class targets: "method" expands each member's implementation */
+  depth?: "method";
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -230,6 +232,7 @@ function buildSymbolFocus(
   knowledge: KnowledgeEntry[],
   fileIndex: FileIndex,
   format: "markdown" | "plain",
+  depth?: "method",
 ): string {
   const parts: string[] = [];
   const md = format === "markdown";
@@ -258,6 +261,28 @@ function buildSymbolFocus(
   if (implChunk) {
     parts.push(section("Implementation", format));
     parts.push(codeBlock(`${symbolName} — lines ${implChunk.start}–${implChunk.end}`, implChunk.content, format));
+  }
+
+  // ── Methods (when target is a class) ──────────────────────────────────────
+  const members = Object.entries(symbols)
+    .filter(([, e]) => e.parent === symbolName && e.file === entry.file)
+    .sort(([, a], [, b]) => a.startLine - b.startLine);
+
+  if (members.length > 0) {
+    parts.push(section("Methods", format));
+    for (const [name, e] of members) {
+      parts.push(md
+        ? `- \`${name}\` — ${e.type}, lines ${e.startLine}–${e.endLine}`
+        : `- ${name} (${e.type}, lines ${e.startLine}-${e.endLine})`);
+      if (depth === "method") {
+        const methodChunk = chunks
+          .filter((c) => c.symbol === name && c.file === e.file)
+          .sort((a, b) => a.start - b.start)[0];
+        if (methodChunk) {
+          parts.push(codeBlock(`${name} — lines ${methodChunk.start}–${methodChunk.end}`, methodChunk.content, format));
+        }
+      }
+    }
   }
 
   // ── Outgoing calls ─────────────────────────────────────────────────────────
@@ -381,7 +406,7 @@ export async function runFocus(
 
   let output = resolvedFile
     ? buildFileFocus(resolvedFile, chunks, symbols, depGraph, callGraph, fileSummaries, knowledge, fileIndex, format, options.lines)
-    : buildSymbolFocus(resolvedSymbol!, chunks, symbols, depGraph, callGraph, fileSummaries, knowledge, fileIndex, format);
+    : buildSymbolFocus(resolvedSymbol!, chunks, symbols, depGraph, callGraph, fileSummaries, knowledge, fileIndex, format, options.depth);
 
   if (options.budget && options.budget > 0) {
     const { text, truncated } = truncateToTokenBudget(output, options.budget);
