@@ -51,6 +51,7 @@ vemora index --root . --no-embed  # or: re-index manually after significant chan
 | Session start (task-specific) | \`brief --root . --skill debug\\|refactor\\|add-feature\\|security\\|explain\\|test\` |
 | File or symbol deep-dive | \`focus <target> --root .\` |
 | Deep-dive restricted to lines | \`focus <target> --root . --lines <start>-<end>\` |
+| Single method deep-dive | \`focus <ClassName.methodName> --root .\` |
 | Class with all method bodies | \`focus <ClassName> --root . --depth method\` |
 | Concept / how-does-X question | \`context --root . --query "<question>"\` |
 | Fix / refactor / add code | \`context --root . --query "<task>" --keyword\` |

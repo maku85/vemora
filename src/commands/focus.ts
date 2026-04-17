@@ -53,7 +53,27 @@ function resolveFile(target: string, fileIndex: FileIndex): string | null {
 function resolveSymbol(target: string, symbols: SymbolIndex): string | null {
   if (target in symbols) return target;
   const lower = target.toLowerCase();
-  return Object.keys(symbols).find((s) => s.toLowerCase() === lower) ?? null;
+  const exact = Object.keys(symbols).find((s) => s.toLowerCase() === lower);
+  if (exact) return exact;
+
+  // Fallback: "ClassName.methodName" — find a symbol whose name matches methodName
+  // and whose parent matches ClassName (handles non-exported methods or casing differences)
+  const dotIdx = target.indexOf(".");
+  if (dotIdx > 0) {
+    const parentPart = target.slice(0, dotIdx).toLowerCase();
+    const namePart = target.slice(dotIdx + 1).toLowerCase();
+    return (
+      Object.keys(symbols).find((s) => {
+        const e = symbols[s];
+        return (
+          s.toLowerCase().endsWith(`.${namePart}`) &&
+          e.parent?.toLowerCase() === parentPart
+        );
+      }) ?? null
+    );
+  }
+
+  return null;
 }
 
 /** Knowledge entries related to a file or symbol */
@@ -400,6 +420,7 @@ export async function runFocus(
       console.error(chalk.red(`"${target}" not found as a symbol or file in the index.`));
       console.error(chalk.gray("Examples:  vemora focus src/storage/cache.ts"));
       console.error(chalk.gray("           vemora focus EmbeddingCacheStorage"));
+      console.error(chalk.gray("           vemora focus EmbeddingCacheStorage.get   (ClassName.methodName)"));
       process.exit(1);
     }
   }
