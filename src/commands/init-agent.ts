@@ -30,7 +30,7 @@ export const DEFAULT_INSTRUCTIONS = `## Working with this codebase
 - **Before querying**, try \`vemora query\` first — open a file only if context is insufficient.
 - **Before deep-diving a file or symbol**, use \`vemora focus\` — aggregates impl, deps, callers, tests, and knowledge in one call.
 - **Before modifying a file**, check blast radius: \`vemora deps <file> --root . --reverse-depth 2\`.
-- **Before renaming a symbol**, check callers: \`vemora usages <SymbolName> --root .\` (add \`--callers-only\` for methods).
+- **Before renaming or changing the signature of a symbol**, check callers: \`vemora usages <SymbolName> --root .\` (add \`--callers-only\` for methods).
 - **After changes**, run the build/test command before declaring done.
 - **Scope discipline**: only change what was asked. No refactoring, comments, or improvements beyond the request.
 - **Save non-obvious findings** with \`vemora remember\` — decisions, gotchas, patterns. Skip what's obvious from reading the code.
