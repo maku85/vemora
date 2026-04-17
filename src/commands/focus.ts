@@ -81,6 +81,7 @@ function relatedKnowledge(
   entries: KnowledgeEntry[],
   filePath: string | null,
   symbolName: string | null,
+  extraSymbols?: string[],
 ): KnowledgeEntry[] {
   return entries.filter((e) => {
     if (filePath) {
@@ -92,6 +93,10 @@ function relatedKnowledge(
       if (e.relatedSymbols?.some((s) => s === symbolName)) return true;
       const text = `${e.title} ${e.body}`.toLowerCase();
       if (text.includes(symbolName.toLowerCase())) return true;
+    }
+    if (extraSymbols?.length) {
+      const text = `${e.title} ${e.body}`.toLowerCase();
+      if (extraSymbols.some((s) => e.relatedSymbols?.includes(s) || text.includes(s.toLowerCase()))) return true;
     }
     return false;
   });
@@ -336,9 +341,10 @@ function buildSymbolFocus(
   }
 
   // ── Sibling symbols (same file, same parent class if any) ─────────────────
-  const siblings = Object.entries(symbols)
-    .filter(([name, e]) => name !== symbolName && e.file === entry.file && e.parent === entry.parent && e.parent !== undefined)
-    .map(([name, e]) => `${name} (${e.type}, line ${e.startLine})`);
+  const siblingEntries = Object.entries(symbols)
+    .filter(([name, e]) => name !== symbolName && e.file === entry.file && e.parent === entry.parent && e.parent !== undefined);
+  const siblingNames = siblingEntries.map(([name]) => name);
+  const siblings = siblingEntries.map(([name, e]) => `${name} (${e.type}, line ${e.startLine})`);
 
   if (siblings.length > 0) {
     parts.push(section(`Sibling Members of \`${entry.parent}\``, format));
@@ -358,7 +364,7 @@ function buildSymbolFocus(
   }
 
   // ── Knowledge ──────────────────────────────────────────────────────────────
-  const knowledgeEntries = relatedKnowledge(knowledge, entry.file, symbolName);
+  const knowledgeEntries = relatedKnowledge(knowledge, entry.file, symbolName, siblingNames);
   if (knowledgeEntries.length > 0) {
     parts.push(section("Related Knowledge", format));
     for (const e of knowledgeEntries) {
