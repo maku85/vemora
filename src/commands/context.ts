@@ -231,6 +231,14 @@ export async function runContext(
       }
     }
 
+    // ── Doc-chunk penalty (auto) ─────────────────────────────────────────
+    // When the query looks like a symbol search (camelCase / snake_case
+    // identifiers), markdown documentation chunks are rarely the intended
+    // target. Penalise them so code chunks surface first.
+    if (looksLikeSymbolQuery(options.query)) {
+      results = penalizeDocResults(results, 0.25);
+    }
+
     // ── Reranking (optional) ──────────────────────────────────────────────
     if (options.rerank && results.length > 0) {
       results = await rerankResults(options.query, results, topK, config.reranker, config.summarization?.model);
@@ -710,6 +718,19 @@ export function generateContextString(
  *
  * Only entries with score > 0 are returned (max 5, sorted descending).
  */
+function looksLikeSymbolQuery(query: string): boolean {
+  const tokens = query.trim().split(/\s+/);
+  return tokens.some(
+    (t) => /[a-z][A-Z]/.test(t) || /^[a-zA-Z][a-zA-Z0-9]*(_[a-zA-Z0-9]+){1,}$/.test(t),
+  );
+}
+
+function penalizeDocResults(results: SearchResult[], factor: number): SearchResult[] {
+  return results.map((r) =>
+    r.chunk.file.endsWith(".md") ? { ...r, score: r.score * factor } : r,
+  );
+}
+
 function rankKnowledgeEntries(
   query: string | undefined,
   results: SearchResult[],
