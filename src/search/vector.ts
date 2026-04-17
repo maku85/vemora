@@ -166,12 +166,33 @@ export function symbolLookup(
     }
   }
 
-  if (candidates.length === 0 || candidates.length > 5) return [];
+  // Mixed queries like "createEmail parameters thread_id signature" produce a
+  // broad candidate set because prose words ("parameters", "signature") match
+  // many symbols. Narrow by keeping only candidates matched by identifier-like
+  // tokens (camelCase or snake_case), which are the intentional symbol hints.
+  let finalCandidates = candidates;
+  if (candidates.length > 5) {
+    const identTokens = query
+      .trim()
+      .split(/\s+/)
+      .filter((w) => /[A-Z]/.test(w) || (/_/.test(w) && /[a-zA-Z]/.test(w)))
+      .map((w) => w.toLowerCase());
+    if (identTokens.length > 0) {
+      finalCandidates = candidates.filter(({ name }) => {
+        const lower = name.toLowerCase();
+        return identTokens.some(
+          (t) => lower === t || lower.startsWith(t) || t.startsWith(lower),
+        );
+      });
+    }
+  }
 
-  candidates.sort((a, b) => b.score - a.score);
+  if (finalCandidates.length === 0 || finalCandidates.length > 5) return [];
+
+  finalCandidates.sort((a, b) => b.score - a.score);
 
   const results: SearchResult[] = [];
-  for (const { name, score } of candidates) {
+  for (const { name, score } of finalCandidates) {
     const sym = symbols[name];
     const chunk = chunks.find((c) => c.symbol === name && c.file === sym.file);
     if (chunk) {
