@@ -48,6 +48,15 @@ export class KnowledgeStorage {
     return true;
   }
 
+  update(id: string, patch: Partial<Omit<KnowledgeEntry, "id" | "createdAt" | "createdBy">>): boolean {
+    const entries = this.load();
+    const idx = entries.findIndex((e) => e.id === id);
+    if (idx === -1) return false;
+    entries[idx] = { ...entries[idx], ...patch };
+    this.save(entries);
+    return true;
+  }
+
   invalidate(id: string): boolean {
     const entries = this.load();
     const match = entries.find((e) => e.id === id);

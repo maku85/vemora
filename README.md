@@ -447,6 +447,7 @@ Options:
   --files <paths>         comma-separated related file paths
   --symbols <names>       comma-separated related symbol names
   --confidence <level>    high | medium | low (default: medium)
+  --supersedes <id>       invalidate an existing entry and link this one as its replacement
 ```
 
 ```bash
@@ -458,6 +459,9 @@ vemora remember "EmailService.send queues if SMTP offline — see OutboxReposito
   --category gotcha \
   --files src/core/email/services/email.service.ts \
   --symbols EmailService.send
+
+# Replace an existing entry (invalidates abc12345, creates a linked replacement)
+vemora remember "Updated behaviour: EmailService.send now retries 3×" --supersedes abc12345
 ```
 
 ### `vemora brief`
@@ -485,8 +489,21 @@ vemora brief --root . --all             # all entries, no filter
 Manages saved knowledge entries.
 
 ```bash
-vemora knowledge list --root .          # list all entries grouped by category
-vemora knowledge forget <id> --root .   # remove an entry by ID (prefix match)
+vemora knowledge list --root .                        # list all entries grouped by category
+vemora knowledge update <id> "<text>" --root .        # edit an existing entry in-place
+vemora knowledge forget <id> --root .                 # remove an entry by ID (prefix match)
+```
+
+`knowledge update` replaces the body of an existing entry without creating a new one — use it to correct a typo or refine wording. For a change in meaning, prefer `remember … --supersedes <id>` to preserve history.
+
+```
+Options for knowledge update:
+  --root <dir>          project root (default: cwd)
+  --title <title>       override title (auto-derived from text if omitted)
+  --category <cat>      decision | pattern | gotcha | glossary
+  --confidence <level>  high | medium | low
+  --files <paths>       comma-separated related file paths
+  --symbols <names>     comma-separated related symbol names
 ```
 
 ### `vemora init-agent`

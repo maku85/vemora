@@ -17,6 +17,7 @@
 import chalk from "chalk";
 import { Command } from "commander";
 import path from "path";
+import type { KnowledgeEntry } from "./core/types";
 import { runAsk } from "./commands/ask";
 import { runBrief } from "./commands/brief";
 import { runAudit } from "./commands/audit";
@@ -31,7 +32,7 @@ import { runDeps } from "./commands/deps";
 import { runIndex } from "./commands/index";
 import { runInit } from "./commands/init";
 import { runInitAgent } from "./commands/init-agent";
-import { runKnowledgeForget, runKnowledgeList } from "./commands/knowledge";
+import { runKnowledgeForget, runKnowledgeList, runKnowledgeUpdate } from "./commands/knowledge";
 import { runQuery } from "./commands/query";
 import { runRemember } from "./commands/remember";
 import { runUsages } from "./commands/usages";
@@ -774,6 +775,44 @@ knowledge
           symbol: opts.symbol,
           asOf: opts.asOf,
           expired: opts.expired,
+        });
+      } catch (err) {
+        console.error(chalk.red("Error:"), (err as Error).message);
+        process.exit(1);
+      }
+    },
+  );
+
+knowledge
+  .command("update <id> <text>")
+  .description("Edit an existing knowledge entry in-place (prefix match on ID)")
+  .option("--root <dir>", "project root directory (default: cwd)", "")
+  .option("--title <title>", "override title (auto-derived from text if omitted)")
+  .option("--category <cat>", "override category: decision | pattern | gotcha | glossary")
+  .option("--confidence <level>", "override confidence: high | medium | low")
+  .option("--files <paths>", "comma-separated project-relative file paths")
+  .option("--symbols <names>", "comma-separated symbol names")
+  .action(
+    async (
+      id: string,
+      text: string,
+      opts: {
+        root: string;
+        title?: string;
+        category?: string;
+        confidence?: string;
+        files?: string;
+        symbols?: string;
+      },
+    ) => {
+      const rootDir = path.resolve(opts.root || process.cwd());
+      try {
+        await runKnowledgeUpdate(rootDir, id, text, {
+          title: opts.title,
+          category: opts.category as KnowledgeEntry["category"] | undefined,
+          confidence: opts.confidence as KnowledgeEntry["confidence"] | undefined,
+          files: opts.files,
+          symbols: opts.symbols,
         });
       } catch (err) {
         console.error(chalk.red("Error:"), (err as Error).message);

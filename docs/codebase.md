@@ -40,6 +40,7 @@ The Commander.js program definition. Registers commands across four groups:
 | `remember <text>` | `commands/remember.ts:runRemember` |
 | `brief` | `commands/brief.ts:runBrief` |
 | `knowledge list` | `commands/knowledge.ts:runKnowledgeList` |
+| `knowledge update <id> <text>` | `commands/knowledge.ts:runKnowledgeUpdate` |
 | `knowledge forget <id>` | `commands/knowledge.ts:runKnowledgeForget` |
 | `plan <task>` | `commands/plan.ts:runPlan` — planner-executor orchestrator |
 | `sessions` | inline in `cli.ts` — lists plan sessions via `PlanSessionStorage` |
@@ -835,11 +836,12 @@ Options (`RememberOptions`): `category`, `title`, `files`, `symbols`, `confidenc
 
 Pipeline:
 1. Validates `body.length >= 20` (exits with error if too short).
-2. Auto-derives `title` from first sentence of `body`, capped at 80 chars.
-3. Duplicate detection: computes term overlap between `body` and each existing entry; warns if any entry has > 60% term overlap (without blocking the write).
-4. **Auto-classification**: if `category` is not provided, calls `classifyCategory(body, config)` via the configured LLM (same provider as `summarization` or `planner`). The LLM returns one of `decision | pattern | gotcha | glossary`. Falls back silently to `"pattern"` if no LLM is configured or the call fails.
-5. Creates a `KnowledgeEntry` with a UUID v4 `id` and `createdAt: new Date().toISOString()`.
-6. Calls `KnowledgeStorage.add(entry)` and prints a confirmation with the short ID.
+2. If `--supersedes <id>` is provided: resolves the entry by prefix match, calls `storage.invalidate()` on it immediately, and records its full UUID as `resolvedSupersedes`. Exits with an error if the ID is not found.
+3. Auto-derives `title` from first sentence of `body`, capped at 80 chars.
+4. Duplicate detection: computes term overlap between `body` and each existing entry; warns if any entry has > 60% term overlap (without blocking the write).
+5. **Auto-classification**: if `category` is not provided, calls `classifyCategory(body, config)` via the configured LLM (same provider as `summarization` or `planner`). The LLM returns one of `decision | pattern | gotcha | glossary`. Falls back silently to `"pattern"` if no LLM is configured or the call fails.
+6. Creates a `KnowledgeEntry` with a UUID v4 `id` and `createdAt: new Date().toISOString()`.
+7. Calls `KnowledgeStorage.add(entry)` and prints a confirmation with the short ID.
 
 Default values: `confidence = 'medium'`, `createdBy = 'human'`. `category` has no hardcoded default — it is auto-classified when omitted.
 

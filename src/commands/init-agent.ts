@@ -70,6 +70,8 @@ vemora index --root . --no-embed  # or: re-index manually after significant chan
 | Who uses a symbol | \`usages <SymbolName> --root .\` |
 | Who calls a method | \`usages <Method> --root . --callers-only\` |
 | Save a finding | \`remember "text" --root .\` |
+| Replace a finding | \`remember "text" --supersedes <id> --root .\` |
+| Edit a finding in-place | \`knowledge update <id> "text" --root .\` |
 `;
 
 // ─── Main command ─────────────────────────────────────────────────────────────

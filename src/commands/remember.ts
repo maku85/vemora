@@ -151,6 +151,23 @@ export async function runRemember(
   const entries = storage.load();
   const validEntries = filterValidAt(entries);
 
+  // Resolve --supersedes early: validate the ID exists and invalidate it
+  let resolvedSupersedes: string | undefined;
+  if (options.supersedes) {
+    const match = entries.find(
+      (e) => e.id === options.supersedes || e.id.startsWith(options.supersedes!),
+    );
+    if (!match) {
+      console.error(
+        chalk.red(`Error: no entry found with ID starting with "${options.supersedes}".`),
+      );
+      process.exit(1);
+    }
+    storage.invalidate(match.id);
+    resolvedSupersedes = match.id;
+    console.log(chalk.gray(`  Invalidated [${match.id.slice(0, 8)}] "${match.title}"`));
+  }
+
   // Token overlap pre-filter — collect candidates for contradiction check (>0.4)
   // and warn on near-duplicates (>0.6)
   const bodyTokens = new Set(
@@ -250,7 +267,7 @@ export async function runRemember(
     createdAt: new Date().toISOString(),
     createdBy: options.createdBy ?? "human",
     confidence: options.confidence ?? "medium",
-    supersedes: options.supersedes ?? supersedingId,
+    supersedes: resolvedSupersedes ?? supersedingId,
   };
 
   storage.add(entry);

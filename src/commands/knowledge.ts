@@ -126,6 +126,58 @@ export async function runKnowledgeList(
   );
 }
 
+// ─── Update ───────────────────────────────────────────────────────────────────
+
+export interface KnowledgeUpdateOptions {
+  title?: string;
+  category?: KnowledgeEntry["category"];
+  confidence?: KnowledgeEntry["confidence"];
+  files?: string;
+  symbols?: string;
+}
+
+export async function runKnowledgeUpdate(
+  rootDir: string,
+  id: string,
+  newBody: string,
+  options: KnowledgeUpdateOptions = {},
+): Promise<void> {
+  loadConfig(rootDir);
+
+  const storage = new KnowledgeStorage(rootDir);
+  const entries = storage.load();
+  const match = entries.find((e) => e.id === id || e.id.startsWith(id));
+
+  if (!match) {
+    console.error(chalk.red(`Error: no entry found with ID starting with "${id}".`));
+    process.exit(1);
+  }
+
+  const patch: Parameters<typeof storage.update>[1] = {
+    body: newBody.trim(),
+    title: options.title ?? newBody.split(/[.!?\n]/)[0].trim().slice(0, 80),
+  };
+
+  if (options.category) patch.category = options.category;
+  if (options.confidence) patch.confidence = options.confidence;
+  if (options.files !== undefined) {
+    patch.relatedFiles = options.files
+      .split(",")
+      .map((f) => f.trim())
+      .filter(Boolean);
+  }
+  if (options.symbols !== undefined) {
+    patch.relatedSymbols = options.symbols
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  storage.update(match.id, patch);
+
+  console.log(chalk.green(`✔ Updated entry [${match.id.slice(0, 8)}] "${patch.title}".`));
+}
+
 // ─── Forget ───────────────────────────────────────────────────────────────────
 
 export async function runKnowledgeForget(
