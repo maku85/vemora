@@ -308,7 +308,7 @@ export async function runAudit(
   const budget = options.budget ?? 5000;
 
   const plannerConfig: SummarizationConfig = config.planner ?? config.summarization;
-  const executorConfig: SummarizationConfig = config.summarization;
+  const executorConfig: SummarizationConfig = config.executor ?? config.summarization;
 
   const planner = createLLMProvider(plannerConfig);
   const executor = createLLMProvider(executorConfig);
