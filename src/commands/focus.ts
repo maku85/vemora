@@ -113,6 +113,13 @@ function codeBlock(label: string, content: string, format: "markdown" | "plain")
   return `// ${label}\n${content}\n`;
 }
 
+/** Strip the class header prepended by chunkBySymbols, keeping only the method body */
+function stripClassHeader(content: string): string {
+  const sep = "// ...\n\n";
+  const idx = content.indexOf(sep);
+  return idx !== -1 ? content.slice(idx + sep.length) : content;
+}
+
 // ─── File focus ───────────────────────────────────────────────────────────────
 
 function buildFileFocus(
@@ -304,7 +311,7 @@ function buildSymbolFocus(
           .filter((c) => c.symbol === name && c.file === e.file)
           .sort((a, b) => a.start - b.start)[0];
         if (methodChunk) {
-          parts.push(codeBlock(`${name} — lines ${methodChunk.start}–${methodChunk.end}`, methodChunk.content, format));
+          parts.push(codeBlock(`${name} — lines ${methodChunk.start}–${methodChunk.end}`, stripClassHeader(methodChunk.content), format));
         }
       }
     }
