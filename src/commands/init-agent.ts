@@ -50,6 +50,7 @@ vemora index --root . --no-embed  # or: re-index manually after significant chan
 | Session start | \`brief --root .\` |
 | Session start (task-specific) | \`brief --root . --skill debug\\|refactor\\|add-feature\\|security\\|explain\\|test\` |
 | File or symbol deep-dive | \`focus <target> --root .\` |
+| Deep-dive restricted to lines | \`focus <target> --root . --lines <start>-<end>\` |
 | Concept / how-does-X question | \`context --root . --query "<question>"\` |
 | Fix / refactor / add code | \`context --root . --query "<task>" --keyword\` |
 | Debug an error (skill preset) | \`context --root . --query "<error>" --skill debug\` |

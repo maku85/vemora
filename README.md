@@ -656,8 +656,10 @@ Aggregates all structural context about a file or symbol in one call — replace
 
 ```
 Options:
-  --root <dir>      project root (default: cwd)
-  --format <fmt>    markdown (default) | plain
+  --root <dir>        project root (default: cwd)
+  --format <fmt>      markdown (default) | plain
+  --budget <n>        max tokens to include in output (truncates from the end)
+  --lines <start-end> restrict implementation output to chunks overlapping a line range
 ```
 
 `<target>` can be a file path (full or partial) or a symbol name:
@@ -669,6 +671,9 @@ vemora focus email.service --root .   # partial path match
 
 # Symbol focus — implementation, callers, callees, sibling members, tests
 vemora focus EmailService.send --root .
+
+# Restrict to a specific line range (useful when --budget cuts off a method)
+vemora focus src/core/email/services/email.service.ts --root . --lines 200-280
 
 # Pipe into a context block for any LLM
 vemora focus src/search/hybrid.ts --root . --format plain > context.md

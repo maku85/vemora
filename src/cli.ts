@@ -1092,18 +1092,29 @@ program
     "markdown",
   )
   .option("--budget <n>", "max tokens to include in output")
+  .option("--lines <range>", "restrict implementation to a line range, e.g. 200-280")
   .action(
-    async (target: string, opts: { root: string; format: string; budget?: string }) => {
+    async (target: string, opts: { root: string; format: string; budget?: string; lines?: string }) => {
       const rootDir = path.resolve(opts.root || process.cwd());
       const fmt = opts.format as "markdown" | "plain";
       if (!["markdown", "plain"].includes(fmt)) {
         console.error(chalk.red(`Unknown format "${fmt}". Use: markdown, plain`));
         process.exit(1);
       }
+      let lines: { start: number; end: number } | undefined;
+      if (opts.lines) {
+        const match = opts.lines.match(/^(\d+)-(\d+)$/);
+        if (!match) {
+          console.error(chalk.red(`Invalid --lines format "${opts.lines}". Use: <start>-<end> (e.g. 200-280)`));
+          process.exit(1);
+        }
+        lines = { start: parseInt(match[1], 10), end: parseInt(match[2], 10) };
+      }
       try {
         await runFocus(rootDir, target, {
           format: fmt,
           budget: opts.budget ? parseInt(opts.budget, 10) : undefined,
+          lines,
         });
       } catch (err) {
         console.error(chalk.red("Error:"), (err as Error).message);

@@ -24,6 +24,8 @@ export interface FocusOptions {
   format?: "markdown" | "plain";
   /** Max tokens to include in output. Output is truncated if exceeded. */
   budget?: number;
+  /** Restrict implementation output to chunks overlapping this line range (e.g. "200-280") */
+  lines?: { start: number; end: number };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -96,6 +98,7 @@ function buildFileFocus(
   knowledge: KnowledgeEntry[],
   fileIndex: FileIndex,
   format: "markdown" | "plain",
+  lines?: { start: number; end: number },
 ): string {
   const parts: string[] = [];
   const md = format === "markdown";
@@ -124,7 +127,7 @@ function buildFileFocus(
 
   // ── Implementation ─────────────────────────────────────────────────────────
   const fileChunks = chunks
-    .filter((c) => c.file === filePath)
+    .filter((c) => c.file === filePath && (!lines || (c.end >= lines.start && c.start <= lines.end)))
     .sort((a, b) => a.start - b.start);
 
   if (fileChunks.length > 0) {
@@ -377,7 +380,7 @@ export async function runFocus(
   }
 
   let output = resolvedFile
-    ? buildFileFocus(resolvedFile, chunks, symbols, depGraph, callGraph, fileSummaries, knowledge, fileIndex, format)
+    ? buildFileFocus(resolvedFile, chunks, symbols, depGraph, callGraph, fileSummaries, knowledge, fileIndex, format, options.lines)
     : buildSymbolFocus(resolvedSymbol!, chunks, symbols, depGraph, callGraph, fileSummaries, knowledge, fileIndex, format);
 
   if (options.budget && options.budget > 0) {
