@@ -38,7 +38,7 @@ export const DEFAULT_INSTRUCTIONS = `## Working with this codebase
 ## Session setup
 
 \`\`\`bash
-vemora brief --root .          # start of session: project overview + critical knowledge
+vemora brief --root .          # start of session: project overview + knowledge entries
 vemora index --root . --watch  # background terminal: live re-index on file save
 vemora index --root . --no-embed  # or: re-index manually after significant changes
 \`\`\`

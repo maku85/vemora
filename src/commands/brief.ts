@@ -22,7 +22,7 @@ export interface BriefOptions {
 /**
  * Prints a compact session primer (~L0 + L1 in mempalace terms):
  *   - Project overview (from vemora summarize)
- *   - High-confidence knowledge entries
+ *   - Knowledge entries (medium + high confidence)
  *
  * Designed to be run at the start of an LLM session to re-establish context
  * without loading the full index. Optimised for minimal token use.
@@ -44,7 +44,7 @@ export async function runBrief(
   // filter still applies unless --all is set.
   let entries = options.all
     ? allEntries
-    : allEntries.filter((e) => e.confidence === "high");
+    : allEntries.filter((e) => e.confidence !== "low");
 
   if (skill && skill.knowledgeCategoryBoost.length > 0) {
     const boosted = new Set(skill.knowledgeCategoryBoost);
@@ -83,9 +83,9 @@ export async function runBrief(
     lines.push("");
   }
 
-  // ── L1: High-confidence knowledge ────────────────────────────────────────────
+  // ── L1: Knowledge (medium + high confidence) ─────────────────────────────────
   if (entries.length > 0) {
-    const label = options.all ? "Knowledge" : "Critical knowledge";
+    const label = "Knowledge";
     lines.push(chalk.bold(`## ${label} (${entries.length})`));
     lines.push("");
 
@@ -110,7 +110,7 @@ export async function runBrief(
   } else {
     const hint = options.all
       ? "No knowledge entries found. Use `vemora remember` to add some."
-      : "No high-confidence entries found. Use `vemora knowledge list` to review all entries.";
+      : "No knowledge entries found. Use `vemora remember` to save findings, or `--all` to include low-confidence entries.";
     lines.push(chalk.gray(hint));
     lines.push("");
   }

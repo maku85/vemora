@@ -462,19 +462,19 @@ vemora remember "EmailService.send queues if SMTP offline — see OutboxReposito
 
 ### `vemora brief`
 
-Prints a compact session primer — project overview and high-confidence knowledge entries — designed to be run at the start of each LLM session to re-establish context with minimal tokens.
+Prints a compact session primer — project overview and knowledge entries (medium + high confidence) — designed to be run at the start of each LLM session to re-establish context with minimal tokens.
 
 ```
 Options:
   --root <dir>     project root (default: cwd)
-  --all            include all knowledge entries, not only high-confidence ones
+  --all            include all knowledge entries, including low-confidence ones
   --skill <name>   task-type preset: surfaces knowledge entries most relevant
                    to the skill's category boost list and prepends a focused
                    instruction block (debug | refactor | add-feature | security | explain | test)
 ```
 
 ```bash
-vemora brief --root .                   # overview + high-confidence entries only
+vemora brief --root .                   # overview + medium & high-confidence entries
 vemora brief --root . --skill debug     # gotcha + pattern entries first, debug focus note
 vemora brief --root . --skill security  # security gotchas surfaced first
 vemora brief --root . --all             # all entries, no filter

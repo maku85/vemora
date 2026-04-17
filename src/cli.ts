@@ -1128,10 +1128,10 @@ program
 program
   .command("brief")
   .description(
-    "Print a compact session primer: project overview + high-confidence knowledge",
+    "Print a compact session primer: project overview + knowledge entries (medium + high confidence)",
   )
   .option("--root <dir>", "project root directory (default: cwd)", "")
-  .option("--all", "include all knowledge entries, not only high-confidence ones", false)
+  .option("--all", "include all knowledge entries, including low-confidence ones", false)
   .option("--budget <n>", "max tokens to include in output")
   .option(
     "--skill <name>",
