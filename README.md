@@ -305,7 +305,7 @@ Options:
 - **Parallel execution** — steps without dependencies run concurrently; sequential steps stream tokens to stdout in real time
 - **Step dependencies** (`dependsOn`) — later steps receive prior results as context
 - **Context deduplication** — the same file/symbol combination is retrieved only once per session
-- **Adaptive re-planning** — if an executor step reports insufficient context (`INSUFFICIENT:`), the planner adds remediation steps automatically
+- **Adaptive re-planning** — if an executor step reports insufficient context (`INSUFFICIENT:`), vemora first retries with a refined BM25 search derived from the missing-context description; only if that also fails does it invoke the planner to add remediation steps
 - **Planner verification** (`--verify`) — after each executor step, the planner reviews the output and can request a retry with specific feedback
 - **Diff application** (`--apply`) — diffs from `write` steps are applied to the filesystem via `patch -p1`; live file contents are read before write steps to avoid stale index data
 - **Session persistence** — every session is saved to `~/.vemora-cache/<projectId>/sessions/` after each wave; interrupted runs can be resumed with `--resume <id>`

@@ -562,6 +562,8 @@ async function executeStep(
   feedback?: string,
   /** Stream tokens to stdout in real time (only for sequential, non-parallel steps) */
   stream?: boolean,
+  /** Additional context snippets to append when the first retrieval was insufficient */
+  extraContext?: string,
 ): Promise<StepResult> {
   const action = step.action ?? "analyze";
 
@@ -636,8 +638,12 @@ async function executeStep(
     ? `\n\n## Planner feedback from previous attempt\n${feedback}\n\nRevise your output to address this feedback.`
     : "";
 
+  const fullContext = extraContext
+    ? `${contextStr}\n\n## Additional context (search refinement)\n${extraContext}`
+    : contextStr;
+
   const messages = [
-    { role: "system" as const, content: `${systemPrompt}\n\n${contextStr}` },
+    { role: "system" as const, content: `${systemPrompt}\n\n${fullContext}` },
     {
       role: "user" as const,
       content: `Goal: ${step.goal}\n\nInstruction: ${step.instruction}${dependencySection}${feedbackSection}`,
@@ -1139,7 +1145,60 @@ export async function runPlan(
 
     // ── Adaptive re-planning: handle INSUFFICIENT steps ────────────────────
 
-    const insufficientSteps = waveResults.filter((r) => r.insufficient);
+    // Before replanning, attempt a cheap local search retry for each insufficient
+    // step using the missing-context description it reported. This avoids a full
+    // LLM replan call when the problem is simply a poorly-matched initial query.
+    let insufficientSteps = waveResults.filter((r) => r.insufficient);
+    if (insufficientSteps.length > 0) {
+      const retrySpinner = ora(
+        `  Search refinement for ${insufficientSteps.length} insufficient step(s)...`,
+      ).start();
+      const stillInsufficient: typeof insufficientSteps = [];
+      for (const r of insufficientSteps) {
+        const step = wave.find((s) => s.id === r.stepId)!;
+        const missingDesc = r.answer.replace(/^INSUFFICIENT:\s*/i, "").trim();
+        const extraResults = computeBM25Scores(missingDesc, data.chunks, data.symbols, topK);
+        if (extraResults.length === 0) {
+          stillInsufficient.push(r);
+          continue;
+        }
+        const contextFormat = config.display?.format === "terse" ? "terse" : "plain";
+        const extraCtx = generateContextString(
+          config,
+          applyTokenBudget(extraResults, budget),
+          data.depGraph,
+          data.callGraph,
+          data.fileSummaries,
+          data.projectOverview,
+          { query: missingDesc, format: contextFormat },
+          rootDir,
+          data.chunks,
+          data.knowledgeEntries,
+        );
+        const retryResult = await executeStep(
+          step, config, data, cacheStorage, rootDir,
+          executorConfig, executor, topK, budget, forceKeyword,
+          stepResults, contextCache, false, undefined, undefined, extraCtx,
+        );
+        stepResults.set(retryResult.stepId, retryResult.answer);
+        if (retryResult.insufficient) {
+          stillInsufficient.push(retryResult);
+        } else {
+          // Update waveResults so synthesizer sees the refined answer
+          const idx = waveResults.findIndex((x) => x.stepId === r.stepId);
+          if (idx !== -1) waveResults[idx] = retryResult;
+        }
+      }
+      if (stillInsufficient.length < insufficientSteps.length) {
+        retrySpinner.succeed(
+          `  Search refinement resolved ${insufficientSteps.length - stillInsufficient.length} step(s)`,
+        );
+      } else {
+        retrySpinner.info("  Search refinement found no additional context");
+      }
+      insufficientSteps = stillInsufficient;
+    }
+
     if (insufficientSteps.length > 0) {
       const replanSpinner = ora(
         `  Re-planning for ${insufficientSteps.length} insufficient step(s)...`,
