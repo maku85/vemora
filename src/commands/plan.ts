@@ -838,7 +838,10 @@ export async function runPlan(
             },
             {
               role: "user",
-              content: `Decompose this task into concrete steps:\n\n${task}`,
+              content:
+                `Decompose this task into concrete steps:\n\n${task}\n\n` +
+                `IMPORTANT: your entire response must be a single raw JSON object ` +
+                `starting with { and ending with }. No prose, no markdown, no code fences.`,
             },
           ];
 
@@ -847,6 +850,7 @@ export async function runPlan(
         ? "Planning (claude-code exploring codebase)..."
         : "Planning...",
     ).start();
+    let plannerRawResponse = "";
     try {
       const plannerResponse = await planner.chat(plannerMessages, {
         model: plannerConfig.model,
@@ -854,6 +858,7 @@ export async function runPlan(
         projectRoot: rootDir,
       });
 
+      plannerRawResponse = plannerResponse.content;
       const raw = plannerResponse.content.trim();
       const jsonStr = extractJson(raw);
 
@@ -867,7 +872,10 @@ export async function runPlan(
         `Plan ready — ${plan.steps.length} step${plan.steps.length !== 1 ? "s" : ""}`,
       );
     } catch (err) {
-      plannerSpinner.fail(`Planning failed: ${(err as Error).message}`);
+      const rawExcerpt = plannerRawResponse
+        ? `\n  Model returned: ${plannerRawResponse.slice(0, 200).replace(/\n/g, " ")}`
+        : "";
+      plannerSpinner.fail(`Planning failed: ${(err as Error).message}${rawExcerpt}`);
       process.exit(1);
     }
   }
@@ -1232,9 +1240,7 @@ export async function runPlan(
         );
 
         const raw = replanResponse.content.trim();
-        const jsonStr = raw.startsWith("```")
-          ? raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "")
-          : raw;
+        const jsonStr = extractJson(raw);
 
         const replan = JSON.parse(jsonStr) as { steps: PlanStep[] };
 
