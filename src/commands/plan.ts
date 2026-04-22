@@ -258,6 +258,57 @@ function extractJson(raw: string): string {
   return raw;
 }
 
+/**
+ * Normalize a raw parsed object into a Plan, tolerating common field name
+ * variations produced by local models that don't strictly follow the schema.
+ */
+function normalizePlan(raw: unknown): Plan {
+  const obj = raw as Record<string, unknown>;
+
+  const VALID_ACTIONS = new Set(["read", "analyze", "write", "test"]);
+
+  const goal = (
+    obj.goal ?? obj.objective ?? obj.task ?? obj.summary ?? obj.description ?? ""
+  ) as string;
+
+  const stepsRaw = (
+    obj.steps ?? obj.tasks ?? obj.plan ?? obj.actions ?? obj.subtasks ?? []
+  ) as unknown[];
+
+  if (!Array.isArray(stepsRaw) || stepsRaw.length === 0) {
+    throw new Error(
+      `Plan returned no steps. Keys found: ${JSON.stringify(Object.keys(obj))}`,
+    );
+  }
+
+  const steps: PlanStep[] = stepsRaw.map((s: unknown, i: number) => {
+    const step = s as Record<string, unknown>;
+    const rawAction = (step.action ?? step.type ?? step.step_type ?? "analyze") as string;
+    const action = VALID_ACTIONS.has(rawAction)
+      ? (rawAction as PlanStep["action"])
+      : "analyze";
+    const stepGoal = (
+      step.goal ?? step.objective ?? step.description ?? step.title ?? step.name ?? `Step ${i + 1}`
+    ) as string;
+    const dependsRaw = step.dependsOn ?? step.depends_on ?? step.dependencies ?? [];
+    return {
+      id: (step.id ?? step.step_id ?? step.number ?? step.index ?? i + 1) as number,
+      action,
+      goal: stepGoal,
+      instruction: (
+        step.instruction ?? step.details ?? step.task ?? step.action_description ?? stepGoal
+      ) as string,
+      query: (step.query ?? step.search_query ?? stepGoal) as string,
+      files: step.files as string[] | undefined,
+      symbols: step.symbols as string[] | undefined,
+      dependsOn: (Array.isArray(dependsRaw) ? dependsRaw : []) as number[],
+      command: step.command as string | undefined,
+    };
+  });
+
+  return { goal, steps };
+}
+
 /** Display the plan in a human-readable table before execution. */
 function displayPlan(plan: Plan, steps: PlanStep[]): void {
   const actionColor: Record<string, (s: string) => string> = {
@@ -862,11 +913,7 @@ export async function runPlan(
       const raw = plannerResponse.content.trim();
       const jsonStr = extractJson(raw);
 
-      plan = JSON.parse(jsonStr) as Plan;
-
-      if (!Array.isArray(plan.steps) || plan.steps.length === 0) {
-        throw new Error("Plan has no steps");
-      }
+      plan = normalizePlan(JSON.parse(jsonStr));
 
       plannerSpinner.succeed(
         `Plan ready — ${plan.steps.length} step${plan.steps.length !== 1 ? "s" : ""}`,
@@ -1242,7 +1289,7 @@ export async function runPlan(
         const raw = replanResponse.content.trim();
         const jsonStr = extractJson(raw);
 
-        const replan = JSON.parse(jsonStr) as { steps: PlanStep[] };
+        const replan = normalizePlan(JSON.parse(jsonStr));
 
         if (Array.isArray(replan.steps) && replan.steps.length > 0) {
           // Reassign IDs to avoid collisions
