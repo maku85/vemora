@@ -330,6 +330,294 @@ Steps are executed sequentially; `{{varName}}` interpolation passes output betwe
 
 ---
 
+## Feature 9 — Knowledge injection in `context`
+
+**Effort:** low | **LLM value:** high
+
+### Goal
+
+`focus` already injects relevant `KnowledgeEntry` items alongside retrieved code. `context` does not. Knowledge entries are token-dense (a few lines each) and carry non-obvious gotchas, design decisions, and patterns that would otherwise require the LLM to ask a follow-up query.
+
+### Behaviour
+
+After search results are formatted, append a "Knowledge" block containing entries whose `relatedFiles` or `relatedSymbols` overlap with the files present in the retrieved chunks. Cap at 5 entries, sorted by `createdAt` descending.
+
+```
+---
+## Knowledge (2)
+
+**Race condition in Promise.all batch** · pattern
+Object.assign(newSymbols, fileSymbols) inside a Promise.all is not safe — concurrent writes produce partial symbol maps. Use per-file maps and merge serially after the batch resolves.
+
+**Ollama serial inference** · pattern
+Ollama processes LLM requests serially (single GPU). Parallelising summarise calls client-side saturates the queue — keep concurrency at 1.
+```
+
+### Integration points
+
+1. **`src/commands/context.ts`** — after `formatMarkdown` / `formatTerse`, call `KnowledgeStorage.list()`, filter by file overlap (reuse the same `relatedKnowledge()` helper from `focus.ts`), append the block
+2. **`src/commands/context.ts`** — add `--no-knowledge` flag to opt out
+3. **`src/search/formatter.ts`** — add an optional `knowledgeBlock` parameter to `formatMarkdown` so the injection is cleanly separated from retrieval logic
+
+### Known risks
+
+- Knowledge entries are stored as free text; without `relatedFiles` populated they fall back to text-match heuristics, which can produce false positives on common words. Keep the same heuristic already used by `focus` to avoid introducing divergence.
+
+---
+
+---
+
+## Feature 10 — Metadata deduplication in markdown formatter
+
+**Effort:** low | **LLM value:** medium
+
+### Goal
+
+The markdown formatter prints `Imports:` and `Used by:` blocks for every result independently. When multiple results come from the same file, these blocks are identical and inflate the output with no information gain.
+
+### Behaviour
+
+Track `seen` file paths in the formatter loop. For any result after the first from the same file, skip the `Imports:` and `Used by:` blocks and replace them with a one-liner:
+
+```
+_Imports and usedBy already shown above (same file)._
+```
+
+For the `Call graph` (Calls/Called by) blocks, keep them per-symbol since they are symbol-specific even within the same file.
+
+### Implementation sketch
+
+```typescript
+// in formatMarkdown()
+const seenFileMeta = new Set<string>();
+
+// inside the results loop:
+if (!seenFileMeta.has(chunk.file)) {
+  seenFileMeta.add(chunk.file);
+  // render imports + usedBy blocks as today
+} else {
+  lines.push("_Imports and usedBy already shown above._");
+  lines.push("");
+}
+```
+
+### Integration points
+
+1. **`src/search/formatter.ts`** — add `seenFileMeta` set to `formatMarkdown()`; same pattern for `formatJson()` (deduplicate at the JSON level by omitting `imports`/`usedBy` for duplicated files and adding a `"sameFileAs": rank` reference)
+
+### Known risks
+
+- A reader scanning only a single result block will miss the imports context. The "already shown above" line is sufficient to avoid confusion, but consider adding the rank number of the first occurrence for easy reference.
+
+---
+
+---
+
+## Feature 11 — Lazy expansion (signature-first output)
+
+**Effort:** medium | **LLM value:** high
+
+### Goal
+
+Most LLM queries only need to know *what* a symbol is (its signature and purpose), not its full implementation. Today, tier-"high" results always include up to `HIGH_CODE_LINES` lines of body. This is wasteful for exploration queries (`explain`, `refactor`, `add-feature`).
+
+The idea: return only signatures by default and let the LLM request the full body explicitly via a second command.
+
+### Behaviour
+
+Add a `--signatures-only` flag to `context` and `query`. When set, all results are rendered at tier "med" regardless of their rank score — showing only the extracted signature. The output footer includes a prompt:
+
+```
+To expand a symbol: vemora expand <symbol> --root .
+```
+
+A new `vemora expand <symbol>` command retrieves the full chunk by exact symbol name from the index and prints its body, optionally with `--budget`.
+
+### Implementation sketch
+
+```typescript
+// src/commands/expand.ts
+export async function runExpand(target: string, rootDir: string, options: { budget?: number }): Promise<void> {
+  const repo = new RepositoryStorage(rootDir);
+  const chunks = repo.loadChunks();
+  const match = chunks.find((c) => c.symbol === target);
+  if (!match) { console.error(`Symbol not found: ${target}`); process.exit(1); }
+  const out = truncateToTokenBudget(match.content, options.budget ?? 0);
+  console.log(out.text);
+}
+```
+
+### Integration points
+
+1. **`src/commands/expand.ts`** — new file: exact-symbol lookup + body print
+2. **`src/cli.ts`** — register `expand <target>` subcommand
+3. **`src/commands/context.ts`** — add `--signatures-only` flag; when set, clamp all tiers to "med" before formatting
+4. **`src/commands/query.ts`** — same `--signatures-only` flag
+
+### Known risks
+
+- `extractSignature` sometimes returns incomplete signatures for multi-line function heads or decorators. Review edge cases before shipping.
+- The `expand` command needs a disambiguator when the same symbol name appears in multiple files. Add `--file` to scope the lookup.
+
+---
+
+---
+
+## Feature 12 — Compressed plan step outputs
+
+**Effort:** medium | **LLM value:** high
+
+### Goal
+
+In `plan`, `dependsOn` injects the full output of prior steps as context for subsequent steps. On long plans the accumulated context grows linearly and often repeats the same code blocks. Compressing each prior step's output to 3–5 bullet-point findings before injecting it reduces token usage by 50–80% on `analyze` steps.
+
+### Behaviour
+
+Add a `--compress-steps` flag to `plan`. When enabled, after each `analyze` step completes, the executor's output is summarised by the LLM into a compact findings block:
+
+```
+### Step 2 findings (compressed)
+- `runContext` is the hot path; called by both `context.ts` and `ask.ts`
+- `applyTokenBudget` is called after rerank, not before — order matters for quality
+- No session deduplication applied when `--keyword` is set
+```
+
+The full step output is retained in `PlanSessionStorage` for auditability but only the compressed version is forwarded to dependent steps.
+
+### Implementation sketch
+
+```typescript
+// in plan.ts, after executor returns for an analyze step:
+if (options.compressSteps && step.action === "analyze") {
+  const compressionPrompt = `Summarise the following analysis in 3-5 bullet points, preserving all actionable findings:\n\n${stepOutput}`;
+  const compressed = await llm.complete(compressionPrompt, { maxTokens: 300 });
+  session.steps[step.id].compressedOutput = compressed;
+}
+// inject compressed output instead of full output for dependsOn
+```
+
+### Integration points
+
+1. **`src/commands/plan.ts`** — add `compressSteps` option; post-process analyze step outputs; use `compressedOutput` when building `dependsOn` context
+2. **`src/storage/planSession.ts`** — extend `PlanStep` with optional `compressedOutput: string`
+3. **`src/core/types.ts`** — extend `PlanSession` accordingly if needed
+
+### Known risks
+
+- Compression introduces an extra LLM round-trip per analyze step. Only worthwhile when `dependsOn` chains are long (≥ 3 steps). Consider auto-enabling only when a step has ≥ 2 dependents.
+- The summarising LLM may drop a subtle but critical finding. Keep the full output accessible via `vemora plan --resume <id> --show-step <n>`.
+
+---
+
+---
+
+## Feature 13 — Session query deduplication
+
+**Effort:** medium | **LLM value:** medium
+
+### Goal
+
+When an LLM issues multiple semantically similar queries in the same session (common during iterative debugging), `context` re-retrieves and re-sends the same chunks. Session tracking (`--session`) already filters *seen chunks* but does not recognise that the new query is essentially the same as a prior one.
+
+### Behaviour
+
+On each `context` call with `--session`, compute the embedding of the incoming query and compare it against embeddings of prior session queries stored in `SessionStorage`. If cosine similarity ≥ 0.92, return only chunks that are *new* relative to the closest prior query, prepended with a header:
+
+```
+_Context update — 2 new chunks since last similar query ("how does hybrid search work?"):_
+```
+
+If all chunks were already seen, return a short note instead of repeating the full context.
+
+### Implementation sketch
+
+```typescript
+// in runContext(), after embedding the query:
+if (options.session) {
+  const priorQueryEmbeddings = session.getQueryEmbeddings();
+  const closest = priorQueryEmbeddings
+    .map((e) => ({ emb: e, sim: cosineSimilarity(queryEmbedding, e.embedding) }))
+    .sort((a, b) => b.sim - a.sim)[0];
+
+  if (closest && closest.sim >= 0.92) {
+    // filter to only chunks not seen in that prior query's result set
+    results = results.filter((r) => !closest.emb.seenChunkIds.has(r.chunk.id));
+    // prepend update header
+  }
+}
+```
+
+### Integration points
+
+1. **`src/storage/session.ts`** — extend `SessionStorage` to store query embeddings and their result chunk IDs alongside seen chunk IDs
+2. **`src/commands/context.ts`** — add deduplication check after embedding the query (only when `--session` is active)
+3. **`src/search/vector.ts`** — `cosineSimilarity` is already exported; no changes needed
+
+### Known risks
+
+- Storing query embeddings increases session file size. Cap at the last 20 queries per session to bound memory.
+- The 0.92 threshold is heuristic. Too high → no deduplication benefit. Too low → unrelated queries get filtered. Make it configurable via `config.json` with a sensible default.
+
+---
+
+---
+
+## Feature 14 — `focus --depth 2` (two-hop graph traversal)
+
+**Effort:** high | **LLM value:** high
+
+### Goal
+
+`focus` currently does one-hop traversal: direct deps and direct callers of the target. For debugging regressions and planning safe refactors, the LLM needs to see who calls the *callers* (blast radius), but today this requires manually chaining multiple `focus` or `usages` calls.
+
+### Behaviour
+
+Add `--depth 2` to `focus`. At depth 2, after collecting the 1-hop results, for each caller/dep found, collect their direct callers/deps in turn. All second-hop results are always rendered at tier "med" (signature only) to cap output size. The total output is bounded by `--budget`.
+
+```
+## Focus: runContext
+
+### Implementation
+…full body…
+
+### Direct callers (depth 1)
+- `src/commands/ask.ts` — runAsk [signature]
+- `src/cli.ts` — inline call [signature]
+
+### Indirect callers (depth 2)
+- `src/commands/plan.ts` — runPlan calls runAsk [signature]
+```
+
+### Implementation sketch
+
+```typescript
+// in runFocus(), after 1-hop traversal:
+if (options.depth2) {
+  const secondHopCallers: string[] = [];
+  for (const caller of firstHopCallerFiles) {
+    const callerSymbolId = `${caller}:${callerSymbol}`;
+    const callerInfo = callGraph[callerSymbolId];
+    if (callerInfo) secondHopCallers.push(...callerInfo.calledBy);
+  }
+  // Deduplicate, exclude already-shown symbols, render at tier "med"
+}
+```
+
+### Integration points
+
+1. **`src/commands/focus.ts`** — extend `FocusOptions` with `depth?: 1 | 2`; add second-hop traversal loop with deduplication against first-hop results
+2. **`src/cli.ts`** — add `--depth` flag to the `focus` subcommand (accepts `1` or `2`)
+3. **`src/search/formatter.ts`** — no changes needed; second-hop results use existing tier-"med" rendering
+
+### Known risks
+
+- On highly connected modules (e.g. `config.ts`, `types.ts`) depth-2 can return hundreds of callers. Hard-cap second-hop results at 20 and note the truncation.
+- Depth-2 traversal over the call graph is only meaningful when the call graph is complete. Files not parsed by tree-sitter (e.g. plain JS, `.vue`, `.svelte`) will have gaps. Flag this in the output when detected.
+
+---
+
+---
+
 ## Effort comparison
 
 | Feature | New files | Modified files | External deps | Estimated effort |
@@ -339,3 +627,9 @@ Steps are executed sequentially; `{{varName}}` interpolation passes output betwe
 | 6 — MCP server | `src/commands/serve.ts` | `cli.ts`, `package.json` | `@modelcontextprotocol/sdk` | ~1–2 days |
 | 7 — Prompt injection detection | `src/utils/injection.ts` | `formatter.ts` | none | ~2–4 h |
 | 8 — Recipes | `src/commands/recipe.ts` | `cli.ts`, `package.json` | `js-yaml` | ~1 day |
+| 9 — Knowledge injection in `context` | none | `context.ts`, `formatter.ts` | none | ~2–4 h |
+| 10 — Metadata dedup in markdown | none | `formatter.ts` | none | ~1–2 h |
+| 11 — Lazy expansion | `src/commands/expand.ts` | `cli.ts`, `context.ts`, `query.ts` | none | ~1 day |
+| 12 — Compressed plan steps | none | `plan.ts`, `planSession.ts` | none | ~1 day |
+| 13 — Session query dedup | none | `session.ts`, `context.ts` | none | ~1 day |
+| 14 — `focus --depth 2` | none | `focus.ts`, `cli.ts` | none | ~1–2 days |
