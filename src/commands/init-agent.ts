@@ -24,7 +24,11 @@ export const MARKER_END = "<!-- vemora:generated:end -->";
 
 // ─── Default instructions ─────────────────────────────────────────────────────
 
-export const DEFAULT_INSTRUCTIONS = `## Working with this codebase
+export const DEFAULT_INSTRUCTIONS = `## Response style
+
+Reply terse. Drop articles, filler, pleasantries, preamble. Fragments ok. Preserve code, paths, symbol names, commands unchanged.
+
+## Working with this codebase
 
 - **Before reading any file**, check the Key Exports table to locate the symbol.
 - **Before querying**, try \`vemora query\` first — open a file only if context is insufficient.

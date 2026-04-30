@@ -436,14 +436,16 @@ async function verifyOutput(
   plannerContext: string,
   rootDir: string,
   isClaudeCodePlanner: boolean,
+  terse?: boolean,
 ): Promise<{ approved: boolean; feedback: string }> {
+  const verifierPrompt = terse ? tersifyPrompt(VERIFIER_SYSTEM_PROMPT) : VERIFIER_SYSTEM_PROMPT;
   const response = await planner.chat(
     [
       {
         role: "system",
         content: isClaudeCodePlanner
-          ? VERIFIER_SYSTEM_PROMPT
-          : `${VERIFIER_SYSTEM_PROMPT}\n\n${plannerContext}`,
+          ? verifierPrompt
+          : `${verifierPrompt}\n\n${plannerContext}`,
       },
       {
         role: "user",
@@ -873,10 +875,11 @@ export async function runPlan(
     // When using claude-code, skip pre-built context — Claude explores the
     // project autonomously with its file tools. For other providers, inject
     // the summaries + symbol list so they don't need filesystem access.
+    const plannerSystemPrompt = options.terse ? tersifyPrompt(PLANNER_SYSTEM_PROMPT) : PLANNER_SYSTEM_PROMPT;
     const plannerMessages: Array<{ role: "system" | "user"; content: string }> =
       isClaudeCodePlanner
         ? [
-            { role: "system", content: PLANNER_SYSTEM_PROMPT },
+            { role: "system", content: plannerSystemPrompt },
             {
               role: "user",
               content:
@@ -890,7 +893,7 @@ export async function runPlan(
         : [
             {
               role: "system",
-              content: `${PLANNER_SYSTEM_PROMPT}\n\n${plannerContext}`,
+              content: `${plannerSystemPrompt}\n\n${plannerContext}`,
             },
             {
               role: "user",
@@ -1111,6 +1114,7 @@ export async function runPlan(
                 plannerContext,
                 rootDir,
                 isClaudeCodePlanner,
+                options.terse,
               );
             } catch (err) {
               verifySpinner.warn(
@@ -1282,8 +1286,8 @@ export async function runPlan(
             {
               role: "system",
               content: isClaudeCodePlanner
-                ? REPLAN_SYSTEM_PROMPT
-                : `${REPLAN_SYSTEM_PROMPT}\n\n${plannerContext}`,
+                ? (options.terse ? tersifyPrompt(REPLAN_SYSTEM_PROMPT) : REPLAN_SYSTEM_PROMPT)
+                : `${options.terse ? tersifyPrompt(REPLAN_SYSTEM_PROMPT) : REPLAN_SYSTEM_PROMPT}\n\n${plannerContext}`,
             },
             {
               role: "user",
