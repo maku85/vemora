@@ -237,6 +237,7 @@ program
     "6000",
   )
   .option("--show-context", "print the retrieved context before the answer", false)
+  .option("--terse", "inject brevity constraint into LLM system prompt (~50-70% fewer output tokens)", false)
   .action(
     async (
       question: string,
@@ -247,6 +248,7 @@ program
         hybrid: boolean;
         budget: string;
         showContext: boolean;
+        terse: boolean;
       },
     ) => {
       const rootDir = path.resolve(opts.root || process.cwd());
@@ -257,6 +259,7 @@ program
           hybrid: opts.hybrid,
           budget: Number.parseInt(opts.budget, 10),
           showContext: opts.showContext,
+          terse: opts.terse,
         });
       } catch (err) {
         console.error(chalk.red("Error:"), (err as Error).message);
@@ -310,6 +313,7 @@ program
     "--resume <id>",
     "resume a previous session by ID or 8-char prefix",
   )
+  .option("--terse", "inject brevity constraint into executor analyze and synthesis prompts (~50-70% fewer output tokens)", false)
   .action(
     async (
       task: string,
@@ -325,6 +329,7 @@ program
         apply: boolean;
         maxRetries: string;
         resume?: string;
+        terse: boolean;
       },
     ) => {
       const rootDir = path.resolve(opts.root || process.cwd());
@@ -340,6 +345,7 @@ program
           apply: opts.apply,
           maxRetries: Number.parseInt(opts.maxRetries, 10),
           resumeSession: opts.resume,
+          terse: opts.terse,
         });
       } catch (err) {
         console.error(chalk.red("Error:"), (err as Error).message);

@@ -60,6 +60,7 @@ vemora index --root . --no-embed  # or: re-index manually after significant chan
 | Add new feature (skill preset) | \`context --root . --query "<feature>" --skill add-feature\` |
 | Scope to recent changes | \`context --root . --query "..." --since HEAD~5\` |
 | Complex multi-step task | \`plan "<task>" --root . --confirm --synthesize\` |
+| Reduce LLM output tokens | add \`--terse\` to \`plan\` or \`ask\` |
 | LLM audit (security/bugs/perf) | \`audit --root . --type security,bugs\` |
 | Zero-LLM static scan | \`triage --root . --type bugs,security\` |
 | Find unused code | \`dead-code --root .\` |

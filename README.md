@@ -263,6 +263,7 @@ Options:
   --hybrid            use hybrid vector+BM25 search
   --budget <n>        max context tokens to send to LLM (default: 6000)
   --show-context      print the retrieved context before the answer
+  --terse             inject brevity constraint into LLM system prompt (~50-70% fewer output tokens)
 ```
 
 ```bash
@@ -289,6 +290,7 @@ Options:
   --apply             automatically apply unified diffs produced by write steps (via patch -p1)
   --max-retries <n>   max re-runs of a step when verification fails (default: 2)
   --resume <id>       resume a previous session by short ID (first 8 chars) or full UUID
+  --terse             inject brevity constraint into executor analyze and synthesis prompts (~50-70% fewer output tokens)
 ```
 
 #### Step action types

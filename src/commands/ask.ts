@@ -11,6 +11,7 @@ import type {
 } from "../core/types";
 import { createEmbeddingProvider } from "../embeddings/factory";
 import { createLLMProvider } from "../llm/factory";
+import { tersifyPrompt } from "../llm/terse";
 import { computeBM25Scores } from "../search/bm25";
 import { hybridSearch } from "../search/hybrid";
 import { vectorSearch } from "../search/vector";
@@ -32,6 +33,8 @@ export interface AskOptions {
   budget?: number;
   /** Print the retrieved context before the answer */
   showContext?: boolean;
+  /** Inject a brevity constraint into the system prompt (~50-70% output token reduction) */
+  terse?: boolean;
 }
 
 const SYSTEM_PROMPT =
@@ -175,7 +178,7 @@ export async function runAsk(
       [
         {
           role: "system",
-          content: `${SYSTEM_PROMPT}\n\n${contextStr}`,
+          content: `${options.terse ? tersifyPrompt(SYSTEM_PROMPT) : SYSTEM_PROMPT}\n\n${contextStr}`,
         },
         { role: "user", content: question },
       ],

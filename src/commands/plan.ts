@@ -21,6 +21,7 @@ import type {
 import { createEmbeddingProvider } from "../embeddings/factory";
 import { createLLMProvider } from "../llm/factory";
 import type { LLMProvider } from "../llm/provider";
+import { tersifyPrompt } from "../llm/terse";
 import { computeBM25Scores } from "../search/bm25";
 import { vectorSearch } from "../search/vector";
 import { EmbeddingCacheStorage } from "../storage/cache";
@@ -56,6 +57,8 @@ export interface PlanOptions {
   maxRetries?: number;
   /** Resume a previous session by ID or 8-char prefix */
   resumeSession?: string;
+  /** Inject a brevity constraint into executor analyze and synthesis prompts (~50-70% output token reduction) */
+  terse?: boolean;
 }
 
 // ─── Internal types ───────────────────────────────────────────────────────────
@@ -615,6 +618,8 @@ async function executeStep(
   stream?: boolean,
   /** Additional context snippets to append when the first retrieval was insufficient */
   extraContext?: string,
+  /** Inject brevity constraint into analyze-step system prompt */
+  terse?: boolean,
 ): Promise<StepResult> {
   const action = step.action ?? "analyze";
 
@@ -682,8 +687,8 @@ async function executeStep(
   }
 
   // ── action: analyze | write — call executor LLM ───────────────────────────
-  const systemPrompt =
-    action === "write" ? EXECUTOR_WRITE_PROMPT : EXECUTOR_ANALYZE_PROMPT;
+  const basePrompt = action === "write" ? EXECUTOR_WRITE_PROMPT : EXECUTOR_ANALYZE_PROMPT;
+  const systemPrompt = terse && action === "analyze" ? tersifyPrompt(basePrompt) : basePrompt;
 
   const feedbackSection = feedback
     ? `\n\n## Planner feedback from previous attempt\n${feedback}\n\nRevise your output to address this feedback.`
@@ -1043,6 +1048,8 @@ export async function runPlan(
           options.showContext ?? false,
           undefined,       // feedback — none on first attempt
           !isParallel,     // stream — only for sequential steps
+          undefined,       // extraContext
+          options.terse,
         ).then((result) => {
           waveSpinners[i]?.succeed(`  [${step.id}] ${step.goal}`);
           return result;
@@ -1151,6 +1158,9 @@ export async function runPlan(
               contextCache,
               options.showContext ?? false,
               verdict.feedback,
+              undefined, // stream
+              undefined, // extraContext
+              options.terse,
             );
 
             const { diff: retryDiff, warnings: retryWarnings } = normalizeDiff(retryResult.answer);
@@ -1233,7 +1243,7 @@ export async function runPlan(
         const retryResult = await executeStep(
           step, config, data, cacheStorage, rootDir,
           executorConfig, executor, topK, budget, forceKeyword,
-          stepResults, contextCache, false, undefined, undefined, extraCtx,
+          stepResults, contextCache, false, undefined, undefined, extraCtx, options.terse,
         );
         stepResults.set(retryResult.stepId, retryResult.answer);
         if (retryResult.insufficient) {
@@ -1322,6 +1332,10 @@ export async function runPlan(
                   stepResults,
                   contextCache,
                   options.showContext ?? false,
+                  undefined, // feedback
+                  undefined, // stream
+                  undefined, // extraContext
+                  options.terse,
                 ),
               ),
             );
@@ -1373,7 +1387,7 @@ export async function runPlan(
     try {
       const response = await planner.chat(
         [
-          { role: "system", content: SYNTHESIZER_SYSTEM_PROMPT },
+          { role: "system", content: options.terse ? tersifyPrompt(SYNTHESIZER_SYSTEM_PROMPT) : SYNTHESIZER_SYSTEM_PROMPT },
           {
             role: "user",
             content: `Original task: ${task}\n\n## Step results\n\n${stepSummaries}\n\nSynthesize a final, complete answer.`,
