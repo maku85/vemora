@@ -1,6 +1,6 @@
 {
   "name": "vemora",
-  "version": "0.1.0-alpha.22",
+  "version": "0.1.0-alpha.23",
   "description": "Repository-local memory system for LLM-assisted development",
   "type": "commonjs",
   "author": "Maku <makuma85@gmail.com>",
